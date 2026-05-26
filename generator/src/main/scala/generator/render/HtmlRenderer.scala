@@ -1,6 +1,5 @@
 package generator.render
 
-
 import generator.theme.Theme
 import shared.*
 

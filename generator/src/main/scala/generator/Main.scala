@@ -6,7 +6,8 @@ import cats.syntax.either.*
 
 import generator.output.{FileSaver, SaveError}
 import generator.parser.{DecodeError, JsonDecoder}
-import generator.render.{HtmlRenderer, RenderError, Renderer, SvgRenderer}
+import generator.render.{HtmlRenderer, RenderError, Renderer,
+    SvgRenderer, SecHtmlRenderer, ThirdHtmlRenderer}
 import generator.theme.{Theme, ThemeError, ThemeLoader}
 import shared.ScheduleFile
 
@@ -73,7 +74,7 @@ object Main extends IOApp:
           printError(s"[json] ${err.message}") *>
             IO.pure(Left(AppError.Decode(err)))
         case Right(schedule) =>
-          printInfo(s"Расписание загружено: ${schedule.meta.groupName}") *>
+          printInfo(s"Schedule is loaded for group: ${schedule.meta.groupName}") *>
             IO.pure(Right(schedule))
 
   private def loadTheme(themeName: String): IO[Either[AppError, Theme]] =
@@ -84,7 +85,7 @@ object Main extends IOApp:
           printError(s"[theme] ${err.message}") *>
             IO.pure(Left(AppError.Theme(err)))
         case Right(theme) =>
-          printInfo(s"Тема загружена: ${theme.name}") *>
+          printInfo(s"Loaded theme: ${theme.name}") *>
             IO.pure(Right(theme))
 
   private def saveResult(outputPath: String, content: String): IO[Either[AppError, Unit]] =
@@ -95,7 +96,7 @@ object Main extends IOApp:
           printError(s"[save] ${err.message}") *>
             IO.pure(Left(AppError.Save(err)))
         case Right(_)  =>
-          printSuccess(s"Файл сохранён: $outputPath") *>
+          printSuccess(s"File saved: $outputPath") *>
             IO.pure(Right(()))
 
   // ── Выбор рендерера (чистая функция) ─────────────────────────────────────────
@@ -107,6 +108,8 @@ object Main extends IOApp:
     format.toLowerCase match
       case "html" => Right(HtmlRenderer)
       case "svg"  => Right(SvgRenderer)
+      case "sec"  => Right(SecHtmlRenderer)
+      case "thrd"  => Right(ThirdHtmlRenderer)
       case other  =>
         Left(AppError.Render(RenderError.NotImplemented(other)))
 
@@ -120,36 +123,36 @@ object Main extends IOApp:
                  acc:       Map[String, String]
                ): Either[String, Map[String, String]] =
       remaining match
-        case Nil                           => Right(acc)
+        case Nil   => Right(acc)
         case flag :: value :: rest
           if flag.startsWith("--")        => collect(rest, acc + (flag -> value))
         case flag :: _ if flag.startsWith("--") =>
-          Left(s"Флаг '$flag' указан без значения")
+          Left(s"Flag '$flag' specified without any value")
         case unknown :: _                  =>
-          Left(s"Неизвестный аргумент: '$unknown'")
+          Left(s"Unknown argument: '$unknown'")
 
     collect(args, Map.empty).flatMap: flags =>
       for
-        input  <- flags.get("--input").toRight("Не указан обязательный флаг --input")
-        output <- flags.get("--output").toRight("Не указан обязательный флаг --output")
+        input  <- flags.get("--input").toRight("The required flag was not specified --input")
+        output <- flags.get("--output").toRight("The required flag was not specified --output")
         theme   = flags.getOrElse("--theme",  "default")
         format  = flags.getOrElse("--format", "html")
       yield Args(input, output, theme, format)
 
   // ── Вывод в консоль (IO-функции) ──────────────────────────────────────────────
 
-  private def printInfo(msg: String):    IO[Unit] = IO.println(s"  ✓ $msg")
-  private def printSuccess(msg: String): IO[Unit] = IO.println(s"\n✔ $msg")
-  private def printError(msg: String):   IO[Unit] = IO.println(s"✗ $msg")
+  private def printInfo(msg: String):    IO[Unit] = IO.println(s"$msg")
+  private def printSuccess(msg: String): IO[Unit] = IO.println(s"\n$msg")
+  private def printError(msg: String):   IO[Unit] = IO.println(s"$msg")
   private def printUsage: IO[Unit] = IO.println:
     """
-      |Использование:
-      |  generator --input <путь к JSON> --output <путь к файлу> [--theme default] [--format html]
+      |How to use:
+      |  generator --input <path to JSON> --output <file path> [--theme default] [--format html]
       |
-      |Доступные темы:   default, dark
-      |Доступные форматы: html (svg — в разработке)
+      |Themes:   default, dark
+      |Files: html (svg — в разработке)
       |
-      |Пример:
+      |Example:
       |  generator --input schedule.json --output out/schedule.html --theme dark
       |""".stripMargin
 
