@@ -1,0 +1,325 @@
+{
+  "meta": {
+    "version": "1.0",
+    "groupName": "IVT-21",
+    "createdAt": "2025-09-01T10:00:00Z"
+  },
+  "weeks": [
+    {
+      "weekType": "odd",
+      "days": [
+        {
+          "day": "mon",
+          "slots": [
+            {
+              "subject": "Функциональное программирование",
+              "room": "305",
+              "teacher": "Иванов И.И.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Математический анализ",
+              "room": "210",
+              "teacher": "Петрова А.В.",
+              "lessonType": "practice",
+              "subgroups": ["1", "2"]
+            },
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "day": "tue",
+          "slots": [
+            null,
+            {
+              "subject": "Базы данных",
+              "room": "412",
+              "teacher": "Сидоров К.М.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Базы данных",
+              "room": "лаб. 108",
+              "teacher": "Сидоров К.М.",
+              "lessonType": "lab",
+              "subgroups": ["1"]
+            },
+            {
+              "subject": "Базы данных",
+              "room": "лаб. 109",
+              "teacher": "Сидоров К.М.",
+              "lessonType": "lab",
+              "subgroups": ["2"]
+            },
+            null,
+            null
+          ]
+        },
+        {
+          "day": "wed",
+          "slots": [
+            {
+              "subject": "Теория вероятностей",
+              "room": "201",
+              "teacher": "Козлова Е.П.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Теория вероятностей",
+              "room": "203",
+              "teacher": "Козлова Е.П.",
+              "lessonType": "practice",
+              "subgroups": []
+            },
+            {
+              "subject": "Физическая культура",
+              "room": "Спортзал",
+              "teacher": "Громов В.С.",
+              "lessonType": "practice",
+              "subgroups": []
+            },
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "day": "thu",
+          "slots": [
+            null,
+            null,
+            {
+              "subject": "Операционные системы",
+              "room": "лаб. 214",
+              "teacher": "Белов А.Н.",
+              "lessonType": "lab",
+              "subgroups": ["1", "2"]
+            },
+            {
+              "subject": "Компьютерные сети",
+              "room": "315",
+              "teacher": "Новиков Р.В.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Компьютерные сети",
+              "room": "315",
+              "teacher": "Новиков Р.В.",
+              "lessonType": "practice",
+              "subgroups": []
+            },
+            null
+          ]
+        },
+        {
+          "day": "fri",
+          "slots": [
+            {
+              "subject": "Функциональное программирование",
+              "room": "лаб. 305",
+              "teacher": "Иванов И.И.",
+              "lessonType": "lab",
+              "subgroups": ["1"]
+            },
+            {
+              "subject": "Функциональное программирование",
+              "room": "лаб. 306",
+              "teacher": "Иванов И.И.",
+              "lessonType": "lab",
+              "subgroups": ["2"]
+            },
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "day": "sat",
+          "slots": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      ]
+    },
+    {
+      "weekType": "even",
+      "days": [
+        {
+          "day": "mon",
+          "slots": [
+            {
+              "subject": "Функциональное программирование",
+              "room": "305",
+              "teacher": "Иванов И.И.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Математический анализ",
+              "room": "210",
+              "teacher": "Петрова А.В.",
+              "lessonType": "practice",
+              "subgroups": ["1", "2"]
+            },
+            {
+              "subject": "Иностранный язык",
+              "room": "118",
+              "teacher": "Морозова Т.Г.",
+              "lessonType": "practice",
+              "subgroups": ["1"]
+            },
+            {
+              "subject": "Иностранный язык",
+              "room": "119",
+              "teacher": "Орлова С.В.",
+              "lessonType": "practice",
+              "subgroups": ["2"]
+            },
+            null,
+            null
+          ]
+        },
+        {
+          "day": "tue",
+          "slots": [
+            {
+              "subject": "Базы данных",
+              "room": "412",
+              "teacher": "Сидоров К.М.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            null,
+            {
+              "subject": "Базы данных",
+              "room": "лаб. 108",
+              "teacher": "Сидоров К.М.",
+              "lessonType": "lab",
+              "subgroups": ["1"]
+            },
+            {
+              "subject": "Базы данных",
+              "room": "лаб. 109",
+              "teacher": "Сидоров К.М.",
+              "lessonType": "lab",
+              "subgroups": ["2"]
+            },
+            null,
+            null
+          ]
+        },
+        {
+          "day": "wed",
+          "slots": [
+            {
+              "subject": "Теория вероятностей",
+              "room": "201",
+              "teacher": "Козлова Е.П.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Теория вероятностей",
+              "room": "203",
+              "teacher": "Козлова Е.П.",
+              "lessonType": "practice",
+              "subgroups": []
+            },
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "day": "thu",
+          "slots": [
+            {
+              "subject": "Операционные системы",
+              "room": "320",
+              "teacher": "Белов А.Н.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            {
+              "subject": "Операционные системы",
+              "room": "лаб. 214",
+              "teacher": "Белов А.Н.",
+              "lessonType": "lab",
+              "subgroups": ["1", "2"]
+            },
+            {
+              "subject": "Компьютерные сети",
+              "room": "315",
+              "teacher": "Новиков Р.В.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "day": "fri",
+          "slots": [
+            {
+              "subject": "Функциональное программирование",
+              "room": "лаб. 305",
+              "teacher": "Иванов И.И.",
+              "lessonType": "lab",
+              "subgroups": ["1"]
+            },
+            {
+              "subject": "Функциональное программирование",
+              "room": "лаб. 306",
+              "teacher": "Иванов И.И.",
+              "lessonType": "lab",
+              "subgroups": ["2"]
+            },
+            {
+              "subject": "Физическая культура",
+              "room": "Спортзал",
+              "teacher": "Громов В.С.",
+              "lessonType": "practice",
+              "subgroups": []
+            },
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "day": "sat",
+          "slots": [
+            {
+              "subject": "История",
+              "room": "101",
+              "teacher": "Васильев Д.О.",
+              "lessonType": "lecture",
+              "subgroups": []
+            },
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      ]
+    }
+  ]
+}
