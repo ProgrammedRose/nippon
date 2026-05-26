@@ -26,7 +26,7 @@ object JsonEncoder:
   /**
    * Преобразует Meta в JSON
    */
-  private def encodeMeta(meta: shared.ScheduleFile.Meta): String =
+  private def encodeMeta(meta: shared.Meta): String =
     s"""{
        |    "version": "${meta.version}",
        |    "groupName": "${escapeJson(meta.groupName)}",
@@ -36,11 +36,11 @@ object JsonEncoder:
   /**
    * Преобразует Week в JSON
    */
-  private def encodeWeek(week: shared.DayBlock.Week): String =
+  private def encodeWeek(week: shared.Week): String =
     val daysJson = week.days.map(encodeDay).mkString(",\n      ")
     val weekType = week.weekType match {
-      case shared.DayBlock.WeekType.Odd => "odd"
-      case shared.DayBlock.WeekType.Even => "even"
+      case shared.WeekType.Odd => "odd"
+      case shared.WeekType.Even => "even"
     }
 
     s"""{

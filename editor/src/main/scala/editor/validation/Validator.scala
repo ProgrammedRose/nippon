@@ -57,7 +57,7 @@ object Validator {
   /**
    * Валидация Week (неделя - чётная или нечётная)
    */
-  def validateWeek(week: DayBlock.Week): Either[ValidationError, DayBlock.Week] = {
+  def validateWeek(week: Week): Either[ValidationError, Week] = {
     val errors = scala.collection.mutable.ListBuffer[ValidationError]()
 
     week.days.foreach(dayBlock =>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaCompilerConfiguration">
-    <profile name="sbt 1" modules="ScheduleGenUI,ScheduleGenUI.editor,ScheduleGenUI.generator,ScheduleGenUI.shared,schedulegenui_5331" />
+    <profile name="sbt 1" modules="ScheduleGenUI,ScheduleGenUI.editor,ScheduleGenUI.generator,ScheduleGenUI.shared,schedulegenui,schedulegenui.editor,schedulegenui.generator,schedulegenui.shared,schedulegenui_5331" />
   </component>
 </project>

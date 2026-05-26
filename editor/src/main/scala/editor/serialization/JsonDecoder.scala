@@ -37,7 +37,7 @@ object JsonDecoder:
       val groupName = extractField(json, "groupName").getOrElse("Unknown")
       val createdAt = extractField(json, "createdAt").getOrElse("")
       
-      val meta = shared.ScheduleFile.Meta(version, groupName, createdAt)
+      val meta = shared.Meta(version, groupName, createdAt)
       
       // Для полного парсинга weeks нужна нормальная JSON-библиотека
       // На данный момент возвращаем пустой ScheduleFile как placeholder

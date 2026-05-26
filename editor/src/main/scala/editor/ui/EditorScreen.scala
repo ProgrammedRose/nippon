@@ -5,13 +5,12 @@ import javafx.scene.control.{Label, TextField, Button, ListView, ListCell, Combo
 import javafx.geometry.Pos
 import javafx.scene.text.Font
 import shared.*
-
 /**
  * Редактор расписания (FR2)
  * Работает с ScheduleFile из shared модуля
  */
 class EditorScreen(initialScheduleFile: ScheduleFile = ScheduleFile(
-  ScheduleFile.Meta("1.0", "Group", ""),
+  Meta("1.0", "Group", ""),
   Vector()
 )) {
   private val root = new BorderPane()
@@ -54,10 +53,10 @@ class EditorScreen(initialScheduleFile: ScheduleFile = ScheduleFile(
   bottomPanel.setAlignment(Pos.CENTER_RIGHT)
 
   private val addSlotBtn = new Button("Add Slot")
-  addSlotBtn.setStyle(buttonStyle)
+  addSlotBtn.setStyle(buttonStyle())
 
   private val editSlotBtn = new Button("Edit Selected")
-  editSlotBtn.setStyle(buttonStyle)
+  editSlotBtn.setStyle(buttonStyle())
 
   private val deleteSlotBtn = new Button("Delete Selected")
   deleteSlotBtn.setStyle(buttonStyle("-fx-background-color: #f44336;"))
