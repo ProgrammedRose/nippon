@@ -10,12 +10,11 @@ import scala.util.Using
 import cats.implicits.catsSyntaxEither
 
 sealed trait DecodeError
-object DecodeError {
+object DecodeError:
   case class ParseError(message: String) extends DecodeError
   case class ValidationError(message: String) extends DecodeError
-}
 
-object JsonDecoder {
+object JsonDecoder:
   
   // Встроенные маппинги (без отдельного объекта Mapping)
   private val jsonToWeekType: Map[String, WeekType] = Map(
@@ -36,22 +35,22 @@ object JsonDecoder {
     "lab" -> LessonType.Lab
   )
   
-  implicit val decodeWeekType: Decoder[WeekType] = Decoder[String].emap { s =>
+  given decodeWeekType: Decoder[WeekType] = Decoder[String].emap { s =>
     jsonToWeekType.get(s).toRight(s"Unknown week type: $s")
   }
-  implicit val decodeDayOfWeek: Decoder[DayOfWeek] = Decoder[String].emap { s =>
+  given decodeDayOfWeek: Decoder[DayOfWeek] = Decoder[String].emap { s =>
     jsonToDay.get(s.toLowerCase).toRight(s"Unknown day: $s")
   }
-  implicit val decodeLessonType: Decoder[LessonType] = Decoder[String].emap { s =>
+  given decodeLessonType: Decoder[LessonType] = Decoder[String].emap { s =>
     jsonToLessonType.get(s).toRight(s"Unknown lesson type: $s")
   }
-  implicit val decodeSlot: Decoder[Slot] = Decoder.forProduct5(
+  given decodeSlot: Decoder[Slot] = Decoder.forProduct5(
     "subject", "room", "teacher", "lessonType", "subgroups"
   )(Slot.apply)
-  implicit val decodeDayBlock: Decoder[DayBlock] = Decoder.forProduct2("day", "slots")(DayBlock.apply)
-  implicit val decodeWeek: Decoder[Week] = Decoder.forProduct2("weekType", "days")(Week.apply)
-  implicit val decodeMeta: Decoder[Meta] = Decoder.forProduct3("version", "groupName", "createdAt")(Meta.apply)
-  implicit val decodeScheduleFile: Decoder[ScheduleFile] = Decoder.forProduct2("meta", "weeks")(ScheduleFile.apply)
+  given decodeDayBlock: Decoder[DayBlock] = Decoder.forProduct2("day", "slots")(DayBlock.apply)
+  given decodeWeek: Decoder[Week] = Decoder.forProduct2("weekType", "days")(Week.apply)
+  given decodeMeta: Decoder[Meta] = Decoder.forProduct3("version", "groupName", "createdAt")(Meta.apply)
+  given decodeScheduleFile: Decoder[ScheduleFile] = Decoder.forProduct2("meta", "weeks")(ScheduleFile.apply)
   
   def loadScheduleFromFile(file: File): IO[Either[DecodeError, ScheduleFile]] =
     IO.blocking {
@@ -67,4 +66,3 @@ object JsonDecoder {
     decode[ScheduleFile](jsonStr).leftMap { circeErr =>
       DecodeError.ParseError(circeErr.getMessage)
     }
-}

@@ -6,7 +6,7 @@ import io.circe.{Encoder, Json}
 import shared._
 import java.io.{File, PrintWriter}
 
-object JsonEncoder {
+object JsonEncoder:
   
   // Встроенные маппинги (короткие названия, как в эталонном JSON)
   private val weekTypeToJson: Map[WeekType, String] = Map(
@@ -27,16 +27,16 @@ object JsonEncoder {
     LessonType.Lab -> "lab"
   )
   
-  implicit val encodeWeekType: Encoder[WeekType] = Encoder.encodeString.contramap(weekTypeToJson)
-  implicit val encodeDayOfWeek: Encoder[DayOfWeek] = Encoder.encodeString.contramap(dayToJson)
-  implicit val encodeLessonType: Encoder[LessonType] = Encoder.encodeString.contramap(lessonTypeToJson)
-  implicit val encodeSlot: Encoder[Slot] = Encoder.forProduct5(
+  given encodeWeekType: Encoder[WeekType] = Encoder.encodeString.contramap(weekTypeToJson)
+  given encodeDayOfWeek: Encoder[DayOfWeek] = Encoder.encodeString.contramap(dayToJson)
+  given encodeLessonType: Encoder[LessonType] = Encoder.encodeString.contramap(lessonTypeToJson)
+  given encodeSlot: Encoder[Slot] = Encoder.forProduct5(
     "subject", "room", "teacher", "lessonType", "subgroups"
   )(s => (s.subject, s.room, s.teacher, s.lessonType, s.subgroups))
-  implicit val encodeDayBlock: Encoder[DayBlock] = Encoder.forProduct2("day", "slots")(db => (db.day, db.slots))
-  implicit val encodeWeek: Encoder[Week] = Encoder.forProduct2("weekType", "days")(w => (w.weekType, w.days))
-  implicit val encodeMeta: Encoder[Meta] = Encoder.forProduct3("version", "groupName", "createdAt")(m => (m.version, m.groupName, m.createdAt))
-  implicit val encodeScheduleFile: Encoder[ScheduleFile] = Encoder.forProduct2("meta", "weeks")(sf => (sf.meta, sf.weeks))
+  given encodeDayBlock: Encoder[DayBlock] = Encoder.forProduct2("day", "slots")(db => (db.day, db.slots))
+  given encodeWeek: Encoder[Week] = Encoder.forProduct2("weekType", "days")(w => (w.weekType, w.days))
+  given encodeMeta: Encoder[Meta] = Encoder.forProduct3("version", "groupName", "createdAt")(m => (m.version, m.groupName, m.createdAt))
+  given encodeScheduleFile: Encoder[ScheduleFile] = Encoder.forProduct2("meta", "weeks")(sf => (sf.meta, sf.weeks))
   
   def toJsonString(schedule: ScheduleFile): String = schedule.asJson.spaces2
   

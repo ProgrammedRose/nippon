@@ -6,20 +6,11 @@ import javafx.geometry.Pos
 import javafx.scene.text.Font
 import shared.*
 
-import java.util.concurrent.atomic.AtomicReference
-
-class EditorScreen(initialScheduleFile: ScheduleFile | Null = null) {
+class EditorScreen:
   private val root = new BorderPane()
-  
-  // Дефолтное расписание (пустое, но валидное)
-  private val defaultSchedule = ScheduleFactory.empty(
-    Meta("1.0", "Группа", java.time.LocalDateTime.now.toString),
-    ScheduleConfig(2, 6, 6)   // weeks=2, daysPerWeek=6, slotsPerDay=6
-  )
-  
-  // Храним актуальное расписание в атомарной ссылке
-  private val currentScheduleFileRef = new AtomicReference[ScheduleFile](
-    if initialScheduleFile != null then initialScheduleFile else defaultSchedule
+  private var currentSchedule: ScheduleFile = ScheduleFactory.empty(
+    Meta("1.0", "Group", java.time.LocalDateTime.now.toString),
+    ScheduleConfig(2, 6, 6)
   )
   
   // Верхняя панель
@@ -27,14 +18,19 @@ class EditorScreen(initialScheduleFile: ScheduleFile | Null = null) {
   topPanel.setStyle("-fx-padding: 15; -fx-background-color: #e0e0e0;")
   topPanel.setAlignment(Pos.CENTER_LEFT)
   
+  private val backBtn = new Button("Back")
+  backBtn.setStyle(buttonStyle("-fx-background-color: #757575;"))
+  
   private val groupLabel = new Label("Group Name:")
   private val groupInput = new TextField()
-  groupInput.setText(currentScheduleFileRef.get().meta.groupName)
   groupInput.setPrefWidth(300)
   
-  topPanel.getChildren.addAll(groupLabel, groupInput)
+  private val saveBtn = new Button("Save & Continue")
+  saveBtn.setStyle(buttonStyle("-fx-background-color: #2196F3;"))
   
-  // Центральная панель – список дней и пар
+  topPanel.getChildren.addAll(backBtn, groupLabel, groupInput, saveBtn)
+  
+  // Центральная панель – выбор недели и список дней
   private val centerPanel = new VBox(15)
   centerPanel.setStyle("-fx-padding: 15;")
   
@@ -47,15 +43,9 @@ class EditorScreen(initialScheduleFile: ScheduleFile | Null = null) {
   daysListView.setPrefHeight(400)
   daysListView.setCellFactory(_ => new DayBlockCell())
   
-  // Заполняем список днями из первой (нечётной) недели, если она существует
-  val schedule: ScheduleFile = currentScheduleFileRef.get()
-  if (schedule.weeks.nonEmpty) {
-    daysListView.getItems.addAll(schedule.weeks(0).days*)
-  }
-  
   centerPanel.getChildren.addAll(weekLabel, weekCombo, daysListView)
   
-  // Нижняя панель с кнопками
+  // Нижняя панель с кнопками для слотов
   private val bottomPanel = new HBox(10)
   bottomPanel.setStyle("-fx-padding: 15; -fx-background-color: #f5f5f5;")
   bottomPanel.setAlignment(Pos.CENTER_RIGHT)
@@ -69,10 +59,7 @@ class EditorScreen(initialScheduleFile: ScheduleFile | Null = null) {
   private val deleteSlotBtn = new Button("Delete Selected")
   deleteSlotBtn.setStyle(buttonStyle("-fx-background-color: #f44336;"))
   
-  private val saveBtn = new Button("Save Schedule")
-  saveBtn.setStyle(buttonStyle("-fx-background-color: #2196F3;"))
-  
-  bottomPanel.getChildren.addAll(addSlotBtn, editSlotBtn, deleteSlotBtn, saveBtn)
+  bottomPanel.getChildren.addAll(addSlotBtn, editSlotBtn, deleteSlotBtn)
   
   root.setTop(topPanel)
   root.setCenter(centerPanel)
@@ -83,21 +70,23 @@ class EditorScreen(initialScheduleFile: ScheduleFile | Null = null) {
   
   def getRoot: BorderPane = root
   
-  def getScheduleFile: ScheduleFile = currentScheduleFileRef.get()
-  
-  def setScheduleFile(scheduleFile: ScheduleFile): Unit = {
-    currentScheduleFileRef.set(scheduleFile)
+  def setScheduleFile(scheduleFile: ScheduleFile, weekType: WeekType): Unit =
+    currentSchedule = scheduleFile
     groupInput.setText(scheduleFile.meta.groupName)
+    weekCombo.setValue(if weekType == WeekType.Odd then "Odd Week" else "Even Week")
     daysListView.getItems.clear()
-    if (scheduleFile.weeks.nonEmpty) {
-      daysListView.getItems.addAll(scheduleFile.weeks(0).days*)
-    }
-  }
+    val week = scheduleFile.weeks.find(_.weekType == weekType).get
+    daysListView.getItems.addAll(week.days*)
   
+  def getScheduleFile: ScheduleFile = currentSchedule
+  
+  def getBackButton: Button = backBtn
+  def getSaveButton: Button = saveBtn
   def getAddSlotButton: Button = addSlotBtn
   def getEditSlotButton: Button = editSlotBtn
   def getDeleteSlotButton: Button = deleteSlotBtn
-  def getSaveButton: Button = saveBtn
+  def getWeekCombo: ComboBox[String] = weekCombo
+  def getDaysListView: ListView[DayBlock] = daysListView
   def getWeekCombo: ComboBox[String] = weekCombo
   
   // Кастомная ячейка для отображения DayBlock

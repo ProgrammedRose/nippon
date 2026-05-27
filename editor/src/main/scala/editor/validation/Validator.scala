@@ -3,10 +3,10 @@ package editor.validation
 import shared.*
 
 /**
- * Валидация компонентов расписания (pure functions)
+ * Валидация компонентов расписания (pure functions, no mutation)
  * Работает с типами из shared
  */
-object Validator {
+object Validator:
 
   sealed trait ValidationError
   case class InvalidSubject(value: String) extends ValidationError
@@ -19,69 +19,72 @@ object Validator {
   /**
    * Проверяет, что строка не пуста
    */
-  def validateNotEmpty(value: String, fieldName: String): Either[ValidationError, String] = {
-    if (value.trim.nonEmpty) Right(value)
+  def validateNotEmpty(value: String, fieldName: String): Either[ValidationError, String] =
+    if value.trim.nonEmpty then Right(value)
     else Left(EmptyField(fieldName))
-  }
 
   /**
-   * Валидация Slot (пара)
+   * Функциональное накопление ошибок из списка Either
    */
-  def validateSlot(slot: Slot): Either[ValidationError, Slot] = {
-    val errors = scala.collection.mutable.ListBuffer[ValidationError]()
+  private def accumulate[A](results: List[Either[ValidationError, A]]): Either[List[ValidationError], Unit] =
+    val errors = results.flatMap(_.left.toOption)
+    if errors.isEmpty then Right(()) else Left(errors)
 
-    if (slot.subject.trim.isEmpty) errors += EmptyField("Subject name")
-    if (slot.room.trim.isEmpty) errors += EmptyField("Room number")
-    if (slot.teacher.trim.isEmpty) errors += EmptyField("Teacher name")
-    if (slot.subgroups.isEmpty) errors += EmptyField("Subgroups")
-
-    if (errors.isEmpty) Right(slot)
-    else Left(InvalidSlot(errors.toList))
-  }
+  /**
+   * Валидация Slot (пара) - чистая функция, без мутации
+   */
+  def validateSlot(slot: Slot): Either[ValidationError, Slot] =
+    val checks = List(
+      if slot.subject.trim.nonEmpty then Right(()) else Left(EmptyField("Subject name")),
+      if slot.room.trim.nonEmpty then Right(()) else Left(EmptyField("Room number")),
+      if slot.teacher.trim.nonEmpty then Right(()) else Left(EmptyField("Teacher name")),
+      if slot.subgroups.nonEmpty then Right(()) else Left(EmptyField("Subgroups"))
+    )
+    
+    val errors = checks.flatMap(_.left.toOption)
+    if errors.isEmpty then Right(slot)
+    else Left(InvalidSlot(errors))
 
   /**
    * Валидация DayBlock (день недели с парами)
    */
-  def validateDayBlock(dayBlock: DayBlock): Either[ValidationError, DayBlock] = {
-    val errors = scala.collection.mutable.ListBuffer[ValidationError]()
-
-    dayBlock.slots.foreach {
-      case Some(slot) => validateSlot(slot).left.foreach(e => errors += e)
-      case None => // пуста пара, это нормально
+  def validateDayBlock(dayBlock: DayBlock): Either[ValidationError, DayBlock] =
+    val slotErrors = dayBlock.slots.flatMap {
+      case Some(slot) => validateSlot(slot).left.toOption.toList
+      case None => Nil
     }
-
-    if (errors.isEmpty) Right(dayBlock)
-    else Left(InvalidSchedule(errors.toList))
-  }
+    
+    if slotErrors.isEmpty then Right(dayBlock)
+    else Left(InvalidSchedule(slotErrors))
 
   /**
    * Валидация Week (неделя - чётная или нечётная)
    */
-  def validateWeek(week: Week): Either[ValidationError, Week] = {
-    val errors = scala.collection.mutable.ListBuffer[ValidationError]()
-
-    week.days.foreach(dayBlock =>
-      validateDayBlock(dayBlock).left.foreach(e => errors += e)
-    )
-
-    if (errors.isEmpty) Right(week)
-    else Left(InvalidSchedule(errors.toList))
-  }
+  def validateWeek(week: Week): Either[ValidationError, Week] =
+    val dayErrors = week.days.flatMap { dayBlock =>
+      validateDayBlock(dayBlock).left.toOption.toList
+    }
+    
+    if dayErrors.isEmpty then Right(week)
+    else Left(InvalidSchedule(dayErrors))
 
   /**
    * Валидация ScheduleFile (полное расписание)
    */
-  def validateScheduleFile(scheduleFile: ScheduleFile): Either[ValidationError, ScheduleFile] = {
-    val errors = scala.collection.mutable.ListBuffer[ValidationError]()
-
-    if (scheduleFile.meta.groupName.trim.isEmpty) errors += EmptyField("Group name")
-    if (scheduleFile.meta.version.trim.isEmpty) errors += EmptyField("Version")
-
-    scheduleFile.weeks.foreach(week =>
-      validateWeek(week).left.foreach(e => errors += e)
+  def validateScheduleFile(scheduleFile: ScheduleFile): Either[ValidationError, ScheduleFile] =
+    val metaChecks = List(
+      if scheduleFile.meta.groupName.trim.nonEmpty then Right(()) 
+        else Left(EmptyField("Group name")),
+      if scheduleFile.meta.version.trim.nonEmpty then Right(()) 
+        else Left(EmptyField("Version"))
     )
-
-    if (errors.isEmpty) Right(scheduleFile)
-    else Left(InvalidSchedule(errors.toList))
-  }
-}
+    
+    val metaErrors = metaChecks.flatMap(_.left.toOption)
+    
+    val weekErrors = scheduleFile.weeks.flatMap { week =>
+      validateWeek(week).left.toOption.toList
+    }
+    
+    val allErrors = metaErrors ++ weekErrors
+    if allErrors.isEmpty then Right(scheduleFile)
+    else Left(InvalidSchedule(allErrors))

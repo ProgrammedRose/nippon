@@ -18,8 +18,11 @@ class DayBlockCell extends ListCell[DayBlock]:
         case DayOfWeek.Fri => "Пт"
         case DayOfWeek.Sat => "Сб"
       
-      val slotsText = dayBlock.slots.toList.zipWithIndex.map {
-        case (Some(slot), idx) => s"${idx+1}. ${slot.subject} (${slot.room})"
-        case (None, idx) => s"${idx+1}. ---"
+      val slotsText = dayBlock.slots.indices.map { idx =>
+        val slotText = dayBlock.slots(idx) match
+          case Some(slot) => s"${idx+1}. ${slot.subject} (${slot.room})"
+          case None => s"${idx+1}. ---"
+        slotText
       }.mkString("\n")
+      
       setText(s"$dayName\n$slotsText")

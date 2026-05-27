@@ -1,19 +1,25 @@
+// editor/ui/FxApp.scala
 package editor.ui
 
-import cats.effect.{IO, Ref}
-import cats.effect.unsafe.IORuntime
 import javafx.application.Application
 import javafx.stage.Stage
-import shared.ScheduleConfig
+import shared.*
+import editor.model.AppState
 
 class FxApp extends Application:
   
-  private var runtime: IORuntime = _
-  
   override def start(stage: Stage): Unit =
-    runtime = IORuntime.global
-    val program = for
-      stateRef <- Ref.of[IO, AppState](AppState.empty("", ScheduleConfig(2, 6, 6)))
-      _ <- Renderer.render(stateRef, stage, ScheduleConfig(2, 6, 6))
-    yield ()
-    program.unsafeRunSync()(runtime)
+    val initialState = AppState(
+      schedule = ScheduleFactory.empty(
+        Meta("1.0", "", java.time.LocalDateTime.now.toString),
+        ScheduleConfig(2, 6, 6)
+      ),
+      currentWeekType = WeekType.Odd,
+      selectedDayIndex = -1,
+      selectedSlotIndex = -1,
+      isEditorMode = false,
+      groupNameInput = ""
+    )
+    Renderer.render(initialState, stage, ScheduleConfig(2, 6, 6))
+    stage.setTitle("Schedule Editor")
+    stage.show()
