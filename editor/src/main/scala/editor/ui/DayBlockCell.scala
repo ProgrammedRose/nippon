@@ -5,19 +5,22 @@ import shared.{DayBlock, DayOfWeek, ScheduleConfig}
 
 class DayBlockCell(cfg: ScheduleConfig) extends ListCell[DayBlock]:
   
+  private val dayNames: Map[DayOfWeek, String] = Map(
+    DayOfWeek.Mon -> "Пн",
+    DayOfWeek.Tue -> "Вт",
+    DayOfWeek.Wed -> "Ср",
+    DayOfWeek.Thu -> "Чт",
+    DayOfWeek.Fri -> "Пт",
+    DayOfWeek.Sat -> "Сб"
+  )
+  
   override def updateItem(dayBlock: DayBlock, empty: Boolean): Unit =
     super.updateItem(dayBlock, empty)
     if empty || dayBlock == null then
       setText(null)
       setGraphic(null)
     else
-      val dayName = dayBlock.day match
-        case DayOfWeek.Mon => "Пн"
-        case DayOfWeek.Tue => "Вт"
-        case DayOfWeek.Wed => "Ср"
-        case DayOfWeek.Thu => "Чт"
-        case DayOfWeek.Fri => "Пт"
-        case DayOfWeek.Sat => "Сб"
+      val dayName = dayNames.getOrElse(dayBlock.day, "???")
       
       val slotsText = dayBlock.slots.indices.map { idx =>
         val timeOpt = cfg.lessonTimes.find(_.number == idx + 1)
