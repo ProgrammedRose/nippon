@@ -1,193 +1,562 @@
 package editor.ui
 
-import javafx.stage.Stage
-import javafx.scene.{Scene, Parent}
-import javafx.scene.layout.{VBox, HBox, BorderPane}
-import javafx.scene.control.{Label, TextField, Button, ListView, ComboBox}
-import javafx.geometry.Pos
-import shared.*
 import cats.effect.unsafe.implicits.global
-import editor.model.{AppState, Actions}
-import editor.serialization.JsonDecoder
-import editor.serialization.JsonEncoder
+import editor.model.{Actions, AppState}
+import editor.serialization.{JsonDecoder, JsonEncoder}
+import editor.validation.Validator
+import javafx.geometry.{Insets, Pos}
+import javafx.scene.Parent
+import javafx.scene.Scene
+import javafx.scene.control.*
+import javafx.scene.layout.{BorderPane, HBox, Priority, VBox}
+import javafx.stage.{FileChooser, Stage}
+import shared.*
+
 import java.io.File
+import scala.sys.process.Process
 
 object Renderer:
   
   def render(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
-    val root = if !state.isEditorMode then renderStartScreen(state, stage, cfg)
-    else renderEditorScreen(state, stage, cfg)
-    stage.setScene(new Scene(root, 1000, 700))
+    val root = renderEditorScreen(state, stage, cfg)
+    
+    stage.setScene(Scene(root, 1280, 760))
   
-  private def renderStartScreen(state: AppState, stage: Stage, cfg: ScheduleConfig): Parent =
-    val groupInput = new TextField()
-    groupInput.setPromptText("Название группы")
-    groupInput.setText(state.groupNameInput)
+  private def renderEditorScreen(
+                                  state: AppState,
+                                  stage: Stage,
+                                  cfg: ScheduleConfig
+                                ): Parent =
     
-    groupInput.textProperty().addListener((_, _, newVal) =>
-      val newState = Actions.setGroupName(newVal)(state)
-      render(newState, stage, cfg)
+    val root = BorderPane()
+    
+    root.setStyle(
+      s"""
+         | -fx-background-color: ${cfg.colors.oddWeekBg};
+         |""".stripMargin
     )
     
-    val createBtn = new Button("Создать")
-    createBtn.setOnAction(_ =>
-      val newState = Actions.createNewSchedule(cfg)(state)
-      render(newState, stage, cfg)
+    // ─────────────────────────────────────────────────────────────
+    // TOP BAR
+    // ─────────────────────────────────────────────────────────────
+    
+    val title = Label("Schedule Editor")
+    
+    title.setStyle(
+      s"""
+         | -fx-font-size: 24px;
+         | -fx-font-weight: bold;
+         | -fx-text-fill: ${cfg.colors.text};
+         |""".stripMargin
     )
     
-    val loadBtn = new Button("Загрузить")
-    loadBtn.setOnAction(_ =>
-      val fileChooser = new javafx.stage.FileChooser()
-      val file = fileChooser.showOpenDialog(stage)
+    val groupField = TextField(state.schedule.meta.groupName)
+    
+    groupField.setPromptText("Название группы")
+    
+    groupField.setStyle(
+      s"""
+         | -fx-background-color: ${cfg.colors.evenWeekBg};
+         | -fx-text-fill: ${cfg.colors.text};
+         | -fx-background-radius: 10;
+         | -fx-padding: 10;
+         | -fx-font-size: 14px;
+         | -fx-border-color: ${cfg.colors.border};
+         | -fx-border-radius: 10;
+         |""".stripMargin
+    )
+    
+    groupField.textProperty.addListener((_, _, newValue) =>
+      val updatedState =
+        state.copy(
+          schedule =
+            state.schedule.copy(
+              meta =
+                state.schedule.meta.copy(
+                  groupName = newValue
+                )
+            )
+        )
+      
+      render(updatedState, stage, cfg)
+    )
+    
+    def createButton(text: String, color: String): Button =
+      val button = Button(text)
+      
+      button.setStyle(
+        s"""
+           | -fx-background-color: $color;
+           | -fx-text-fill: white;
+           | -fx-font-size: 13px;
+           | -fx-font-weight: bold;
+           | -fx-background-radius: 10;
+           | -fx-padding: 10 16 10 16;
+           | -fx-cursor: hand;
+           |""".stripMargin
+      )
+      
+      button
+    
+    val loadButton =
+      createButton("Загрузить JSON", cfg.colors.room)
+    
+    val saveButton =
+      createButton("Сохранить JSON", cfg.colors.lessonBg)
+    
+    val htmlButton =
+      createButton("Сгенерировать HTML", cfg.colors.teacher)
+    
+    // ─────────────────────────────────────────────────────────────
+    // LOAD
+    // ─────────────────────────────────────────────────────────────
+    
+    loadButton.setOnAction(_ =>
+      val chooser = FileChooser()
+      
+      val file = chooser.showOpenDialog(stage)
+      
       if file != null then
         JsonDecoder.loadScheduleFromFile(file).unsafeRunSync() match
           case Right(schedule) =>
-            val newState = Actions.loadSchedule(schedule)(state)
+            val newState =
+              Actions.loadSchedule(schedule)(state)
+            
             render(newState, stage, cfg)
-          case Left(err) => println(s"Ошибка: $err")
+          
+          case Left(error) =>
+            showError(error.toString)
     )
     
-    val box = new VBox(10, new Label("Генератор расписания"), groupInput, createBtn, loadBtn)
-    box.setAlignment(Pos.CENTER)
-    box
-  
-  private def renderEditorScreen(state: AppState, stage: Stage, cfg: ScheduleConfig): Parent =
-    val topBar = new HBox(10)
-    topBar.setStyle(s"-fx-padding: 10; -fx-background-color: ${cfg.colors.oddWeekBg};")
-    val groupLabel = new Label(s"Group: ${state.schedule.meta.groupName}")
-    groupLabel.setStyle(s"-fx-text-fill: ${cfg.colors.text};")
-    val backBtn = new Button("← Back")
-    backBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.border}; -fx-text-fill: ${cfg.colors.text};")
-    backBtn.setOnAction(_ =>
-      val newState = Actions.backToStart(state)
-      render(newState, stage, cfg)
-    )
-    val saveBtn = new Button("Save JSON")
-    saveBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.room}; -fx-text-fill: ${cfg.colors.text};")
-    saveBtn.setOnAction(_ =>
-      val fileChooser = new javafx.stage.FileChooser()
-      fileChooser.setInitialFileName("schedule.json")
-      val file = fileChooser.showSaveDialog(stage)
-      if file != null then
-        JsonEncoder.saveScheduleToFile(state.schedule, file).unsafeRunSync() match
-          case Right(_) => println(s"Schedule saved: ${file.getAbsolutePath}")
-          case Left(e) => println(s"Error: $e")
-    )
-    topBar.getChildren.addAll(groupLabel, backBtn, saveBtn)
+    // ─────────────────────────────────────────────────────────────
+    // SAVE JSON
+    // ─────────────────────────────────────────────────────────────
     
-    val weekSelector = new ComboBox[WeekType]()
-    weekSelector.getItems.addAll(WeekType.Odd, WeekType.Even)
+    saveButton.setOnAction(_ =>
+      Validator.validateScheduleFile(state.schedule) match
+        case Left(error) =>
+          showError(error.toString)
+        
+        case Right(_) =>
+          val chooser = FileChooser()
+          
+          chooser.setInitialFileName("schedule.json")
+          
+          val file = chooser.showSaveDialog(stage)
+          
+          if file != null then
+            JsonEncoder
+              .saveScheduleToFile(state.schedule, file)
+              .unsafeRunSync() match
+              
+              case Right(_) =>
+                showInfo("JSON успешно сохранён")
+              
+              case Left(error) =>
+                showError(error.toString)
+    )
+    
+    // ─────────────────────────────────────────────────────────────
+    // GENERATE HTML
+    // ─────────────────────────────────────────────────────────────
+    
+    htmlButton.setOnAction(_ =>
+      Validator.validateScheduleFile(state.schedule) match
+        case Left(error) =>
+          showError(error.toString)
+        
+        case Right(_) =>
+          val tempJson =
+            File.createTempFile("schedule-editor-", ".json")
+          
+          JsonEncoder
+            .saveScheduleToFile(state.schedule, tempJson)
+            .unsafeRunSync() match
+            
+            case Left(error) =>
+              showError(error.toString)
+            
+            case Right(_) =>
+              val chooser = FileChooser()
+              
+              chooser.setInitialFileName("schedule.html")
+              
+              val outputFile =
+                chooser.showSaveDialog(stage)
+              
+              if outputFile != null then
+                
+                val command =
+                  List(
+                    "generator",
+                    "--input",
+                    tempJson.getAbsolutePath,
+                    "--output",
+                    outputFile.getAbsolutePath,
+                    "--theme",
+                    "dark",
+                    "--format",
+                    "html"
+                  )
+                
+                val exitCode =
+                  Process(command).!
+                
+                if exitCode == 0 then
+                  showInfo("HTML успешно сгенерирован")
+                else
+                  showError(
+                    s"Generator завершился с кодом: $exitCode"
+                  )
+    )
+    
+    val buttons = HBox(10)
+    
+    buttons.getChildren.addAll(
+      loadButton,
+      saveButton,
+      htmlButton
+    )
+    
+    val top = VBox(15)
+    
+    top.setPadding(Insets(20))
+    
+    top.getChildren.addAll(
+      title,
+      groupField,
+      buttons
+    )
+    
+    // ─────────────────────────────────────────────────────────────
+    // WEEK SELECTOR
+    // ─────────────────────────────────────────────────────────────
+    
+    val weekSelector = ComboBox[WeekType]()
+    
+    weekSelector.getItems.addAll(
+      WeekType.Odd,
+      WeekType.Even
+    )
+    
     weekSelector.setValue(state.currentWeekType)
-    weekSelector.setStyle(s"-fx-font-size: 12; -fx-background-color: ${cfg.colors.oddWeekBg}; -fx-text-fill: ${cfg.colors.text};")
+    
+    weekSelector.setStyle(
+      s"""
+         | -fx-background-color: ${cfg.colors.evenWeekBg};
+         | -fx-mark-color: white;
+         | -fx-background-radius: 10;
+         | -fx-font-size: 14px;
+         |""".stripMargin
+    )
+    
+    weekSelector.setButtonCell(
+      new ListCell[WeekType]:
+        override def updateItem(
+                                 item: WeekType,
+                                 empty: Boolean
+                               ): Unit =
+          super.updateItem(item, empty)
+          
+          if empty || item == null then
+            setText(null)
+          else
+            setText(
+              item match
+                case WeekType.Odd  => "Нечётная неделя"
+                case WeekType.Even => "Чётная неделя"
+            )
+          
+          setStyle(
+            s"""
+               | -fx-background-color: ${cfg.colors.evenWeekBg};
+               | -fx-text-fill: white;
+               |""".stripMargin
+          )
+    )
+    
+    weekSelector.setCellFactory(_ =>
+      new ListCell[WeekType]:
+        override def updateItem(
+                                 item: WeekType,
+                                 empty: Boolean
+                               ): Unit =
+          super.updateItem(item, empty)
+          
+          if empty || item == null then
+            setText(null)
+          else
+            setText(
+              item match
+                case WeekType.Odd  => "Нечётная неделя"
+                case WeekType.Even => "Чётная неделя"
+            )
+          
+          setStyle(
+            s"""
+               | -fx-background-color: ${cfg.colors.evenWeekBg};
+               | -fx-text-fill: white;
+               |""".stripMargin
+          )
+    )
+    
     weekSelector.setOnAction(_ =>
-      val newState = Actions.setWeekType(weekSelector.getValue)(state)
-      render(newState, stage, cfg)
+      val updatedState =
+        Actions.setWeekType(
+          weekSelector.getValue
+        )(state)
+      
+      render(updatedState, stage, cfg)
     )
     
-    val currentWeek = state.schedule.weeks.find(_.weekType == state.currentWeekType).get
-    val dayListView = new javafx.scene.control.ListView[DayBlock]()
-    dayListView.getItems.addAll(currentWeek.days*)
-    dayListView.setCellFactory(_ => new DayBlockCell(cfg))
-    dayListView.setPrefHeight(300)
-    dayListView.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg};")
+    // ─────────────────────────────────────────────────────────────
+    // DATA
+    // ─────────────────────────────────────────────────────────────
+    
+    val currentWeek =
+      state.schedule.weeks
+        .find(_.weekType == state.currentWeekType)
+        .get
+    
+    // ─────────────────────────────────────────────────────────────
+    // DAY LIST
+    // ─────────────────────────────────────────────────────────────
+    
+    val dayList = ListView[DayBlock]()
+    
+    dayList.getItems.addAll(currentWeek.days*)
+    
+    dayList.setCellFactory(_ =>
+      DayBlockCell(cfg)
+    )
+    
+    dayList.setPrefWidth(420)
+    
+    dayList.setStyle(
+      s"""
+         | -fx-background-color: transparent;
+         | -fx-control-inner-background: transparent;
+         |""".stripMargin
+    )
+    
     if state.selectedDayIndex >= 0 then
-      dayListView.getSelectionModel.select(state.selectedDayIndex)
+      dayList.getSelectionModel.select(
+        state.selectedDayIndex
+      )
+      
+      dayList.scrollTo(
+        state.selectedDayIndex
+      )
     
-    val slotListView = new javafx.scene.control.ListView[String]()
-    slotListView.setPrefHeight(300)
-    slotListView.setPrefWidth(380)
-    slotListView.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg}; -fx-border-color: ${cfg.colors.border}; -fx-text-fill: ${cfg.colors.text};")
+    // ─────────────────────────────────────────────────────────────
+    // SLOT LIST
+    // ─────────────────────────────────────────────────────────────
     
-    def fillSlots(dayIndex: Int): Unit =
-      slotListView.getItems.clear()
-      if dayIndex >= 0 then
-        val day = currentWeek.days(dayIndex)
-        day.slots.indices.foreach { idx =>
-          val timeOpt = cfg.lessonTimes.find(_.number == idx + 1)
-          val timeStr = timeOpt.map(t => s" (${t.start}-${t.end})").getOrElse("")
-          val title = day.slots(idx) match
-            case Some(slot) => s"${idx + 1}${timeStr}. ${slot.subject} (${slot.room}) - ${slot.teacher}"
-            case None => s"${idx + 1}${timeStr}. [Empty]"
-          slotListView.getItems.add(title)
-        }
-        if state.selectedSlotIndex >= 0 then
-          slotListView.getSelectionModel.select(state.selectedSlotIndex)
+    val slotList = ListView[String]()
     
-    fillSlots(state.selectedDayIndex)
-    
-    dayListView.setOnMouseClicked(_ =>
-      val selectedDay = dayListView.getSelectionModel.getSelectedIndex
-      if selectedDay >= 0 then
-        val newState = Actions.selectDay(selectedDay)(state)
-        render(newState, stage, cfg)
+    slotList.setStyle(
+      s"""
+         | -fx-background-color: ${cfg.colors.evenWeekBg};
+         | -fx-control-inner-background: ${cfg.colors.evenWeekBg};
+         | -fx-background-radius: 14;
+         | -fx-padding: 10;
+         |""".stripMargin
     )
     
-    slotListView.setOnMouseClicked(_ =>
-      val selectedSlot = slotListView.getSelectionModel.getSelectedIndex
-      if selectedSlot >= 0 then
-        val newState = Actions.selectSlot(selectedSlot)(state)
-        render(newState, stage, cfg)
+    val slotValues =
+      if state.selectedDayIndex >= 0 then
+        val selectedDay =
+          currentWeek.days(state.selectedDayIndex)
+        
+        selectedDay.slots.zipWithIndex.map:
+          case (maybeSlot, index) =>
+            val time =
+              cfg.lessonTimes
+                .find(_.number == index + 1)
+                .map(t => s"${t.start}-${t.end}")
+                .getOrElse("")
+            
+            maybeSlot match
+              case Some(slot) =>
+                s"${index + 1}. [$time] ${slot.subject} / ${slot.teacher} / ${slot.room}"
+              
+              case None =>
+                s"${index + 1}. [$time] Пусто"
+      else
+        Vector.empty
+    
+    slotList.getItems.addAll(slotValues*)
+    
+    if state.selectedSlotIndex >= 0 then
+      slotList.getSelectionModel.select(
+        state.selectedSlotIndex
+      )
+      
+      slotList.scrollTo(
+        state.selectedSlotIndex
+      )
+    
+    // ─────────────────────────────────────────────────────────────
+    // EVENTS
+    // ─────────────────────────────────────────────────────────────
+    
+    dayList.setOnMouseClicked(_ =>
+      val selectedIndex =
+        dayList.getSelectionModel
+          .getSelectedIndex
+      
+      if selectedIndex >= 0 then
+        val updatedState =
+          Actions.selectDay(selectedIndex)(state)
+        
+        render(updatedState, stage, cfg)
     )
     
-    val buttonPanel = new HBox(10)
-    buttonPanel.setStyle(s"-fx-padding: 10; -fx-background-color: ${cfg.colors.evenWeekBg};")
+    slotList.setOnMouseClicked(_ =>
+      val selectedIndex =
+        slotList.getSelectionModel
+          .getSelectedIndex
+      
+      if selectedIndex >= 0 then
+        val updatedState =
+          Actions.selectSlot(selectedIndex)(state)
+        
+        render(updatedState, stage, cfg)
+    )
     
-    val addSlotBtn = new Button("+ Add Slot")
-    addSlotBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.lessonBg}; -fx-text-fill: ${cfg.colors.text};")
-    addSlotBtn.setOnAction(_ =>
-      val selectedDay = state.selectedDayIndex
-      if selectedDay >= 0 then
-        val day = currentWeek.days(selectedDay)
-        val emptyIndex = day.slots.indexWhere(_.isEmpty)
+    // ─────────────────────────────────────────────────────────────
+    // ACTION BUTTONS
+    // ─────────────────────────────────────────────────────────────
+    
+    val addButton =
+      createButton("+ Добавить", cfg.colors.lessonBg)
+    
+    val editButton =
+      createButton("✎ Изменить", cfg.colors.teacher)
+    
+    val deleteButton =
+      createButton("✕ Удалить", cfg.colors.pairNumber)
+    
+    addButton.setOnAction(_ =>
+      if state.selectedDayIndex >= 0 then
+        val day =
+          currentWeek.days(
+            state.selectedDayIndex
+          )
+        
+        val emptyIndex =
+          day.slots.indexWhere(_.isEmpty)
+        
         if emptyIndex >= 0 then
-          val dialog = new SlotEditorDialog(None, cfg)
-          dialog.showDialogAndWait().foreach { slot =>
-            val newState = Actions.saveSlot(selectedDay, emptyIndex, slot)(state)
-            render(newState, stage, cfg)
-          }
-        else println("Selected day is full")
-      else println("Select a day first")
+          val dialog =
+            SlotEditorDialog(None, cfg)
+          
+          dialog.showDialogAndWait().foreach: slot =>
+            val updatedState =
+              Actions.saveSlot(
+                state.selectedDayIndex,
+                emptyIndex,
+                slot
+              )(state)
+            
+            render(updatedState, stage, cfg)
     )
     
-    val editSlotBtn = new Button("✎ Edit Selected")
-    editSlotBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.teacher}; -fx-text-fill: ${cfg.colors.text};")
-    editSlotBtn.setOnAction(_ =>
-      val selectedDay = state.selectedDayIndex
-      val selectedSlot = state.selectedSlotIndex
-      if selectedDay >= 0 && selectedSlot >= 0 then
-        val day = currentWeek.days(selectedDay)
-        day.slots(selectedSlot) match
-          case Some(existingSlot) =>
-            val dialog = new SlotEditorDialog(Some(existingSlot), cfg)
-            dialog.showDialogAndWait().foreach { slot =>
-              val newState = Actions.saveSlot(selectedDay, selectedSlot, slot)(state)
-              render(newState, stage, cfg)
-            }
-          case None => println("Select a filled slot first")
-      else println("Select a day and slot first")
+    editButton.setOnAction(_ =>
+      if state.selectedDayIndex >= 0 &&
+        state.selectedSlotIndex >= 0
+      then
+        
+        val maybeSlot =
+          currentWeek.days(state.selectedDayIndex)
+            .slots(state.selectedSlotIndex)
+        
+        maybeSlot.foreach: slot =>
+          val dialog =
+            SlotEditorDialog(Some(slot), cfg)
+          
+          dialog.showDialogAndWait().foreach: updatedSlot =>
+            val updatedState =
+              Actions.saveSlot(
+                state.selectedDayIndex,
+                state.selectedSlotIndex,
+                updatedSlot
+              )(state)
+            
+            render(updatedState, stage, cfg)
     )
     
-    val deleteSlotBtn = new Button("✕ Delete Selected")
-    deleteSlotBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.pairNumber}; -fx-text-fill: ${cfg.colors.text};")
-    deleteSlotBtn.setOnAction(_ =>
-      val selectedDay = state.selectedDayIndex
-      val selectedSlot = state.selectedSlotIndex
-      if selectedDay >= 0 && selectedSlot >= 0 then
-        val newState = Actions.deleteSlot(selectedDay, selectedSlot)(state)
-        render(newState, stage, cfg)
-      else println("Select a day and slot first")
+    deleteButton.setOnAction(_ =>
+      if state.selectedDayIndex >= 0 &&
+        state.selectedSlotIndex >= 0
+      then
+        val updatedState =
+          Actions.deleteSlot(
+            state.selectedDayIndex,
+            state.selectedSlotIndex
+          )(state)
+        
+        render(updatedState, stage, cfg)
     )
     
-    buttonPanel.getChildren.addAll(addSlotBtn, editSlotBtn, deleteSlotBtn)
+    val actions = HBox(10)
     
-    val body = new HBox(10)
-    body.getChildren.addAll(dayListView, slotListView)
+    actions.getChildren.addAll(
+      addButton,
+      editButton,
+      deleteButton
+    )
     
-    val center = new VBox(10)
-    center.setStyle(s"-fx-padding: 10; -fx-background-color: ${cfg.colors.oddWeekBg};")
-    center.getChildren.addAll(weekSelector, body, buttonPanel)
+    // ─────────────────────────────────────────────────────────────
+    // BODY
+    // ─────────────────────────────────────────────────────────────
     
-    val root = new BorderPane()
-    root.setTop(topBar)
+    val body = HBox(20)
+    
+    body.setPadding(Insets(20))
+    
+    HBox.setHgrow(slotList, Priority.ALWAYS)
+    
+    body.getChildren.addAll(
+      dayList,
+      slotList
+    )
+    
+    val center = VBox(20)
+    
+    center.setPadding(Insets(0, 20, 20, 20))
+    
+    center.getChildren.addAll(
+      weekSelector,
+      body,
+      actions
+    )
+    
+    root.setTop(top)
     root.setCenter(center)
+    
     root
+  
+  // ─────────────────────────────────────────────────────────────
+  // ALERTS
+  // ─────────────────────────────────────────────────────────────
+  
+  private def showError(message: String): Unit =
+    val alert =
+      Alert(Alert.AlertType.ERROR)
+    
+    alert.setTitle("Ошибка")
+    alert.setHeaderText("Ошибка")
+    alert.setContentText(message)
+    
+    alert.showAndWait()
+  
+  private def showInfo(message: String): Unit =
+    val alert =
+      Alert(Alert.AlertType.INFORMATION)
+    
+    alert.setTitle("Успех")
+    alert.setHeaderText("Успех")
+    alert.setContentText(message)
+    
+    alert.showAndWait()
