@@ -166,38 +166,33 @@ object Renderer:
           showError(error.toString)
         
         case Right(_) =>
-          val tempJson =
-            File.createTempFile("schedule-editor-", ".json")
-          
+          val tempJson = File.createTempFile("tempTEST", ".json", File("\\C:\\Users\\nonro\\Desktop\\"))
+          println(s"TEMP: ${tempJson.getAbsolutePath}")
+
           JsonEncoder
             .saveScheduleToFile(state.schedule, tempJson)
             .unsafeRunSync() match
             
             case Left(error) =>
-              showError(error.toString)
+              showError(error)
             
             case Right(_) =>
               val chooser = FileChooser()
               
               chooser.setInitialFileName("schedule.html")
               
-              val outputFile =
-                chooser.showSaveDialog(stage)
-              
+              //val outputFile =
+              //  chooser.showSaveDialog(stage)
+              val outputFile = File.createTempFile("tempTEST222", ".html", File("\\C:\\Users\\nonro\\Desktop\\"))
+
               if outputFile != null then
-                
-                val command =
-                  List(
-                    "generator",
-                    "--input",
-                    tempJson.getAbsolutePath,
-                    "--output",
-                    outputFile.getAbsolutePath,
-                    "--theme",
-                    "dark",
-                    "--format",
-                    "html"
-                  )
+
+                val command = List(
+                  //"cmd", "/c", "sbt",
+                  s"generator/run --input ${tempJson.getAbsolutePath} --output ${outputFile.getAbsolutePath} --theme dark --format html"
+                )
+
+                //println(s"OUTPUT^ ${outputFile.getAbsolutePath}")
                 
                 val exitCode =
                   Process(command).!
@@ -436,66 +431,45 @@ object Renderer:
     
     val deleteButton =
       createButton("✕ Удалить", cfg.colors.pairNumber)
-    
+
     addButton.setOnAction(_ =>
-      if state.selectedDayIndex >= 0 then
-        val day =
-          currentWeek.days(
-            state.selectedDayIndex
-          )
-        
-        val emptyIndex =
-          day.slots.indexWhere(_.isEmpty)
-        
+      val currentDayIndex = dayList.getSelectionModel.getSelectedIndex
+
+      if currentDayIndex >= 0 then
+        val day = currentWeek.days(currentDayIndex)
+        val emptyIndex = day.slots.indexWhere(_.isEmpty)
+
         if emptyIndex >= 0 then
-          val dialog =
-            SlotEditorDialog(None, cfg)
-          
+          val dialog = SlotEditorDialog(None, cfg)
           dialog.showDialogAndWait().foreach: slot =>
             val updatedState =
-              Actions.saveSlot(
-                state.selectedDayIndex,
-                emptyIndex,
-                slot
-              )(state)
-            
+              Actions.saveSlot(currentDayIndex, emptyIndex, slot)(state)
             render(updatedState, stage, cfg)
+        else
+          showError("Все слоты в этом дне заняты")
     )
-    
+
     editButton.setOnAction(_ =>
-      if state.selectedDayIndex >= 0 &&
-        state.selectedSlotIndex >= 0
-      then
-        
-        val maybeSlot =
-          currentWeek.days(state.selectedDayIndex)
-            .slots(state.selectedSlotIndex)
-        
+      val currentDayIndex = dayList.getSelectionModel.getSelectedIndex
+      val currentSlotIndex = slotList.getSelectionModel.getSelectedIndex
+
+      if currentDayIndex >= 0 && currentSlotIndex >= 0 then
+        val maybeSlot = currentWeek.days(currentDayIndex).slots(currentSlotIndex)
         maybeSlot.foreach: slot =>
-          val dialog =
-            SlotEditorDialog(Some(slot), cfg)
-          
+          val dialog = SlotEditorDialog(Some(slot), cfg)
           dialog.showDialogAndWait().foreach: updatedSlot =>
             val updatedState =
-              Actions.saveSlot(
-                state.selectedDayIndex,
-                state.selectedSlotIndex,
-                updatedSlot
-              )(state)
-            
+              Actions.saveSlot(currentDayIndex, currentSlotIndex, updatedSlot)(state)
             render(updatedState, stage, cfg)
     )
-    
+
     deleteButton.setOnAction(_ =>
-      if state.selectedDayIndex >= 0 &&
-        state.selectedSlotIndex >= 0
-      then
+      val currentDayIndex = dayList.getSelectionModel.getSelectedIndex
+      val currentSlotIndex = slotList.getSelectionModel.getSelectedIndex
+
+      if currentDayIndex >= 0 && currentSlotIndex >= 0 then
         val updatedState =
-          Actions.deleteSlot(
-            state.selectedDayIndex,
-            state.selectedSlotIndex
-          )(state)
-        
+          Actions.deleteSlot(currentDayIndex, currentSlotIndex)(state)
         render(updatedState, stage, cfg)
     )
     

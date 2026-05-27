@@ -28,10 +28,19 @@ lazy val generator = project
   .in(file("generator"))
   .dependsOn(shared)
   .settings(
+    name := "generator",
     libraryDependencies ++= Seq(
       "org.scala-lang.modules" %% "scala-xml"    % "2.2.0",
       "io.circe"               %% "circe-parser" % circeVersion
-    )
+    ),
+    assembly / mainClass       := Some("generator.Main"),
+    assembly / assemblyJarName := "generator.jar",
+    // circe тянет разные versions META-INF/services — мержим их
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", "services", _*) => MergeStrategy.concat
+      case PathList("META-INF", _*)             => MergeStrategy.discard
+      case _                                    => MergeStrategy.first
+    }
   )
 
 lazy val editor = project

@@ -37,14 +37,13 @@ object Validator:
     val checks = List(
       if slot.subject.trim.nonEmpty then Right(()) else Left(EmptyField("Subject name")),
       if slot.room.trim.nonEmpty then Right(()) else Left(EmptyField("Room number")),
-      if slot.teacher.trim.nonEmpty then Right(()) else Left(EmptyField("Teacher name")),
-      if slot.subgroups.nonEmpty then Right(()) else Left(EmptyField("Subgroups"))
+      if slot.teacher.trim.nonEmpty then Right(()) else Left(EmptyField("Teacher name"))
+      // подгруппы не проверяем — пустой список означает «вся группа», это ок
     )
-    
+
     val errors = checks.flatMap(_.left.toOption)
     if errors.isEmpty then Right(slot)
     else Left(InvalidSlot(errors))
-
   /**
    * Валидация DayBlock (день недели с парами)
    */
