@@ -1,27 +1,21 @@
 package editor.ui
 
-import cats.effect.IO
-import cats.effect.unsafe.IORuntime
-import javafx.application.Application
+import javafx.application.{Application, Platform}
 import javafx.stage.Stage
 import shared.*
 import editor.model.AppState
+import cats.effect.unsafe.implicits.global
 
 class FxApp extends Application:
   
-  private var runtime: IORuntime = _
-  
   override def start(stage: Stage): Unit =
-    runtime = IORuntime.global
-    
-    val program = for
-      configOrError <- ConfigLoader.loadFromResources()
-      _ <- configOrError match
+    Platform.runLater { () =>
+      ConfigLoader.loadFromResources().unsafeRunSync() match
         case Right(cfg) =>
           val initialState = AppState.empty("", cfg)
-          IO(Renderer.render(initialState, stage, cfg))
+          Renderer.render(initialState, stage, cfg)
+          stage.setTitle("Schedule Editor")
+          stage.show()
         case Left(err) =>
-          IO(println(s"Failed to load config: $err"))
-    yield ()
-    
-    program.unsafeRunSync()(runtime)
+          println(s"Failed to load config: $err")
+    }
