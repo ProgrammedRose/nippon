@@ -1,9 +1,10 @@
 package editor.serialization
 
 import cats.effect.IO
-import io.circe.syntax._
-import io.circe.{Encoder, Json}
-import shared._
+import io.circe.Encoder
+import io.circe.syntax.*
+import shared.*
+
 import java.io.{File, PrintWriter}
 
 object JsonEncoder:

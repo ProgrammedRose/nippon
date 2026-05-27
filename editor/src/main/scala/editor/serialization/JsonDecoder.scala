@@ -1,13 +1,14 @@
 package editor.serialization
 
 import cats.effect.IO
+import cats.implicits.catsSyntaxEither
+import io.circe.Decoder
 import io.circe.parser.decode
-import io.circe.{Decoder, Error}
-import shared._
+import shared.*
+
 import java.io.File
 import scala.io.Source
 import scala.util.Using
-import cats.implicits.catsSyntaxEither
 
 sealed trait DecodeError
 object DecodeError:

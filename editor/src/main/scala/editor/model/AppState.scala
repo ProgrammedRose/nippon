@@ -29,11 +29,4 @@ object AppState:
       selectedDayIndex = -1,
       selectedSlotIndex = -1,
       isEditorMode = false,
-      groupNameInput = groupName,
-      exportFormat = "html",
-      theme = "Light",
-      colorScheme = "Blue",
-      fontSize = "Normal",
-      slotEditMode = false,
-      editingSlotIndex = -1
-    )
+      groupNameInput = groupName)
