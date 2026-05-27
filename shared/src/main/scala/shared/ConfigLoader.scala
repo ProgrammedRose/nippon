@@ -1,23 +1,24 @@
-package shared.config
+package shared
 
-import io.circe.*
 import io.circe.yaml.parser
 import shared.ScheduleConfig
 
 import scala.io.Source
+import scala.util.Using
 
 object ConfigLoader:
-  def load(): ScheduleConfig =
-    val stream = getClass.getResourceAsStream("/structure.yaml")
-    val yamlStr = Source.fromInputStream(stream).mkString
-    
-    parser.parse(yamlStr) match
-      case Left(err) =>
-        throw new RuntimeException(s"Invalid YAML: $err")
-      
-      case Right(json) =>
-        json.as[ScheduleConfig] match
-          case Left(err) =>
-            throw new RuntimeException(s"Invalid config format: $err")
-          case Right(cfg) =>
-            cfg
+  def load(): Either[String, ScheduleConfig] =
+    Option(getClass.getResourceAsStream("/structure.yaml"))
+      .toRight("Config file '/structure.yaml' not found")
+      .flatMap { stream =>
+        Using(Source.fromInputStream(stream)) { source => source.mkString }
+          .toEither
+          .left.map(_.getMessage)
+      }
+      .flatMap { yamlStr =>
+        parser.parse(yamlStr).left.map(err => s"Invalid YAML: $err")
+      }
+      .flatMap { json =>
+        json.hcursor.downField("schedule").as[ScheduleConfig]
+          .left.map(err => s"Invalid config format: $err")
+      }

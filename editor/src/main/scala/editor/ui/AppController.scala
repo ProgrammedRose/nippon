@@ -3,8 +3,9 @@ package editor.ui
 import javafx.scene.Scene
 import javafx.stage.Stage
 import shared.*
-import shared.config.ScheduleConfig
+import shared.ScheduleConfig
 
+import java.util.concurrent.atomic.AtomicReference
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -15,8 +16,8 @@ final case class AppState(
                          )
 
 class AppController(primaryStage: Stage, cfg: ScheduleConfig):
-  
-  private var state: AppState =
+
+  private val stateRef = AtomicReference(
     AppState(
       ScheduleFactory.empty(
         Meta("1.0", "Group", LocalDateTime.now.toString),
@@ -25,6 +26,11 @@ class AppController(primaryStage: Stage, cfg: ScheduleConfig):
       "html",
       ("Light", "Blue", "Normal")
     )
+  )
+
+  private def state: AppState = stateRef.get()
+  private def updateState(f: AppState => AppState): Unit =
+    stateRef.updateAndGet((t: AppState) => f(t))
   
   private val mainWindow = new MainWindow()
   private val editorScreen = new EditorScreen()
@@ -44,16 +50,12 @@ class AppController(primaryStage: Stage, cfg: ScheduleConfig):
     )
     
     editorScreen.getSaveButton.setOnAction(_ =>
-      state = state.copy(
-        schedule = editorScreen.getScheduleFile
-      )
+      updateState(_.copy(schedule = editorScreen.getScheduleFile))
       showFormatScreen()
     )
     
     formatScreen.getNextButton.setOnAction(_ =>
-      state = state.copy(
-        format = formatScreen.getSelectedFormat
-      )
+      updateState(_.copy(format = formatScreen.getSelectedFormat))
       showStyleScreen()
     )
     
@@ -62,13 +64,13 @@ class AppController(primaryStage: Stage, cfg: ScheduleConfig):
     )
     
     styleScreen.getNextButton.setOnAction(_ =>
-      state = state.copy(
+      updateState(_.copy(
         style = (
           styleScreen.getTheme,
           styleScreen.getColorScheme,
           styleScreen.getFontSize
         )
-      )
+      ))
       showDoneScreen()
     )
     
@@ -90,10 +92,12 @@ class AppController(primaryStage: Stage, cfg: ScheduleConfig):
   
   def showMainWindow(): Unit =
     primaryStage.setScene(new Scene(mainWindow.getRoot, 800, 600))
+    primaryStage.show()
   
   def showEditorScreen(): Unit =
     editorScreen.setScheduleFile(state.schedule)
     primaryStage.setScene(new Scene(editorScreen.getRoot, 1000, 700))
+    
   
   def showFormatScreen(): Unit =
     primaryStage.setScene(new Scene(formatScreen.getRoot, 600, 500))
@@ -126,8 +130,8 @@ class AppController(primaryStage: Stage, cfg: ScheduleConfig):
     println(s"Exporting schedule as ${state.format} with style: ${state.style}")
   
   private def generatePreview(scheduleFile: ScheduleFile): String =
-    scheduleFile.weeks.zipWithIndex.map { case (week, idx) =>
-      
+    scheduleFile.weeks.indices.map { idx =>
+      val week = scheduleFile.weeks(idx)
       val weekType = if idx == 0 then "ODD" else "EVEN"
       
       val daysInfo = week.days.map { dayBlock =>
@@ -140,11 +144,10 @@ class AppController(primaryStage: Stage, cfg: ScheduleConfig):
           case DayOfWeek.Fri => "Friday"
           case DayOfWeek.Sat => "Saturday"
         
-        val slotsInfo = dayBlock.slots.zipWithIndex.map {
-          case (Some(slot), i) =>
-            s"Pair ${i + 1}: ${slot.subject} (${slot.room}) - ${slot.teacher}"
-          case (None, i) =>
-            s"Pair ${i + 1}: [Empty]"
+        val slotsInfo = dayBlock.slots.indices.map { i =>
+          dayBlock.slots(i) match
+            case Some(slot) => s"Pair ${i + 1}: ${slot.subject} (${slot.room}) - ${slot.teacher}"
+            case None => s"Pair ${i + 1}: [Empty]"
         }.mkString("\n")
         
         s"$dayName:\n$slotsInfo"

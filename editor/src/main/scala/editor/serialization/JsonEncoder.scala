@@ -1,117 +1,52 @@
 package editor.serialization
 
-import shared.*
-import scala.util.Using
-import java.io.{FileWriter, PrintWriter}
+import cats.effect.IO
+import io.circe.syntax._
+import io.circe.{Encoder, Json}
+import shared._
+import java.io.{File, PrintWriter}
 
-/**
- * Сериализация моделей в JSON и запись на диск
- */
-object JsonEncoder:
-
-  /**
-   * Преобразует ScheduleFile в JSON-строку
-   */
-  def encodeScheduleFile(scheduleFile: ScheduleFile): String =
-    val metaJson = encodeMeta(scheduleFile.meta)
-    val weeksJson = scheduleFile.weeks.map(encodeWeek).mkString(",\n    ")
-
-    s"""{
-       |  "meta": $metaJson,
-       |  "weeks": [
-       |    $weeksJson
-       |  ]
-       |}""".stripMargin
-
-  /**
-   * Преобразует Meta в JSON
-   */
-  private def encodeMeta(meta: shared.Meta): String =
-    s"""{
-       |    "version": "${meta.version}",
-       |    "groupName": "${escapeJson(meta.groupName)}",
-       |    "createdAt": "${meta.createdAt}"
-       |  }""".stripMargin
-
-  /**
-   * Преобразует Week в JSON
-   */
-  private def encodeWeek(week: shared.Week): String =
-    val daysJson = week.days.map(encodeDay).mkString(",\n      ")
-    val weekType = week.weekType match {
-      case shared.WeekType.Odd => "odd"
-      case shared.WeekType.Even => "even"
+object JsonEncoder {
+  
+  // Встроенные маппинги (короткие названия, как в эталонном JSON)
+  private val weekTypeToJson: Map[WeekType, String] = Map(
+    WeekType.Odd -> "odd",
+    WeekType.Even -> "even"
+  )
+  private val dayToJson: Map[DayOfWeek, String] = Map(
+    DayOfWeek.Mon -> "mon",
+    DayOfWeek.Tue -> "tue",
+    DayOfWeek.Wed -> "wed",
+    DayOfWeek.Thu -> "thu",
+    DayOfWeek.Fri -> "fri",
+    DayOfWeek.Sat -> "sat"
+  )
+  private val lessonTypeToJson: Map[LessonType, String] = Map(
+    LessonType.Lecture -> "lecture",
+    LessonType.Practice -> "practice",
+    LessonType.Lab -> "lab"
+  )
+  
+  implicit val encodeWeekType: Encoder[WeekType] = Encoder.encodeString.contramap(weekTypeToJson)
+  implicit val encodeDayOfWeek: Encoder[DayOfWeek] = Encoder.encodeString.contramap(dayToJson)
+  implicit val encodeLessonType: Encoder[LessonType] = Encoder.encodeString.contramap(lessonTypeToJson)
+  implicit val encodeSlot: Encoder[Slot] = Encoder.forProduct5(
+    "subject", "room", "teacher", "lessonType", "subgroups"
+  )(s => (s.subject, s.room, s.teacher, s.lessonType, s.subgroups))
+  implicit val encodeDayBlock: Encoder[DayBlock] = Encoder.forProduct2("day", "slots")(db => (db.day, db.slots))
+  implicit val encodeWeek: Encoder[Week] = Encoder.forProduct2("weekType", "days")(w => (w.weekType, w.days))
+  implicit val encodeMeta: Encoder[Meta] = Encoder.forProduct3("version", "groupName", "createdAt")(m => (m.version, m.groupName, m.createdAt))
+  implicit val encodeScheduleFile: Encoder[ScheduleFile] = Encoder.forProduct2("meta", "weeks")(sf => (sf.meta, sf.weeks))
+  
+  def toJsonString(schedule: ScheduleFile): String = schedule.asJson.spaces2
+  
+  def saveScheduleToFile(schedule: ScheduleFile, file: File): IO[Either[String, Unit]] =
+    IO.blocking {
+      val pw = new PrintWriter(file)
+      try pw.write(toJsonString(schedule))
+      finally pw.close()
+    }.attempt.map {
+      case Right(_) => Right(())
+      case Left(ex) => Left(s"Failed to save: ${ex.getMessage}")
     }
-
-    s"""{
-       |      "weekType": "$weekType",
-       |      "days": [
-       |        $daysJson
-       |      ]
-       |    }""".stripMargin
-
-  /**
-   * Преобразует DayBlock в JSON
-   */
-  private def encodeDay(dayBlock: DayBlock): String =
-    val dayName = dayBlock.day match {
-      case shared.DayOfWeek.Mon => "Monday"
-      case shared.DayOfWeek.Tue => "Tuesday"
-      case shared.DayOfWeek.Wed => "Wednesday"
-      case shared.DayOfWeek.Thu => "Thursday"
-      case shared.DayOfWeek.Fri => "Friday"
-      case shared.DayOfWeek.Sat => "Saturday"
-    }
-    
-    val slotsJson = dayBlock.slots.map {
-      case Some(slot) => encodeSlot(slot)
-      case None => "null"
-    }.mkString(",\n        ")
-
-    s"""{
-       |        "day": "$dayName",
-       |        "slots": [
-       |          $slotsJson
-       |        ]
-       |      }""".stripMargin
-
-  /**
-   * Преобразует Slot в JSON
-   */
-  private def encodeSlot(slot: Slot): String =
-    val lessonType = slot.lessonType match {
-      case shared.LessonType.Lecture => "lecture"
-      case shared.LessonType.Practice => "practice"
-      case shared.LessonType.Lab => "lab"
-    }
-    val subgroupsJson = slot.subgroups.map(sg => s""""${escapeJson(sg)}"""").mkString(",")
-
-    s"""{
-       |          "subject": "${escapeJson(slot.subject)}",
-       |          "room": "${escapeJson(slot.room)}",
-       |          "teacher": "${escapeJson(slot.teacher)}",
-       |          "lessonType": "$lessonType",
-       |          "subgroups": [$subgroupsJson]
-       |        }""".stripMargin
-
-  /**
-   * Экранирует специальные символы для JSON
-   */
-  private def escapeJson(s: String): String =
-    s.replace("\\", "\\\\")
-      .replace("\"", "\\\"")
-      .replace("\n", "\\n")
-      .replace("\r", "\\r")
-      .replace("\t", "\\t")
-
-  /**
-   * Сохраняет ScheduleFile в JSON-файл на диск
-   */
-  def saveScheduleToFile(scheduleFile: ScheduleFile, filePath: String): Either[String, Unit] =
-    try
-      Using(new PrintWriter(new FileWriter(filePath))) { writer =>
-        writer.write(encodeScheduleFile(scheduleFile))
-      }
-      Right(())
-    catch
-      case e: Exception => Left(s"Failed to save schedule: ${e.getMessage}")
+}
