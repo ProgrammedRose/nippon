@@ -8,8 +8,8 @@ import scala.util.Using
 
 object ConfigLoader:
   def load(): Either[String, ScheduleConfig] =
-    Option(getClass.getResourceAsStream("/structure.yaml"))
-      .toRight("Config file '/structure.yaml' not found")
+    Option(getClass.getResourceAsStream("/unused_structure.yaml"))
+      .toRight("Config file '/unused_structure.yaml' not found")
       .flatMap { stream =>
         Using(Source.fromInputStream(stream)) { source => source.mkString }
           .toEither
