@@ -2,6 +2,6 @@
 <project version="4">
   <component name="ScalaCompilerConfiguration">
     <option name="separateProdTestSources" value="true" />
-    <profile name="sbt 1" modules="ScheduleGenUI,ScheduleGenUI.main,ScheduleGenUI.test" />
+    <profile name="sbt 1" modules="ScheduleGenUI,ScheduleGenUI.main,ScheduleGenUI.test,schedulegenui,schedulegenui.editor,schedulegenui.editor.main,schedulegenui.editor.test,schedulegenui.generator,schedulegenui.generator.main,schedulegenui.generator.test,schedulegenui.main,schedulegenui.shared,schedulegenui.shared.main,schedulegenui.shared.test,schedulegenui.test" />
   </component>
 </project>
