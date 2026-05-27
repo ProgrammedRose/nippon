@@ -1,9 +1,10 @@
 package editor.ui
 
 import javafx.scene.control.ListCell
-import shared.*
+import shared.{DayBlock, DayOfWeek, ScheduleConfig}
 
-class DayBlockCell extends ListCell[DayBlock]:
+class DayBlockCell(cfg: ScheduleConfig) extends ListCell[DayBlock]:
+  
   override def updateItem(dayBlock: DayBlock, empty: Boolean): Unit =
     super.updateItem(dayBlock, empty)
     if empty || dayBlock == null then
@@ -19,10 +20,12 @@ class DayBlockCell extends ListCell[DayBlock]:
         case DayOfWeek.Sat => "Сб"
       
       val slotsText = dayBlock.slots.indices.map { idx =>
-        val slotText = dayBlock.slots(idx) match
-          case Some(slot) => s"${idx+1}. ${slot.subject} (${slot.room})"
-          case None => s"${idx+1}. ---"
-        slotText
+        val timeOpt = cfg.lessonTimes.find(_.number == idx + 1)
+        val timeStr = timeOpt.map(t => s" ${t.start}-${t.end}").getOrElse("")
+        dayBlock.slots(idx) match
+          case Some(slot) => s"${idx + 1}${timeStr}: ${slot.subject} (${slot.room})"
+          case None => s"${idx + 1}${timeStr}: ---"
       }.mkString("\n")
       
+      setStyle(s"-fx-text-fill: ${cfg.colors.text}; -fx-background-color: ${cfg.colors.oddWeekBg};")
       setText(s"$dayName\n$slotsText")

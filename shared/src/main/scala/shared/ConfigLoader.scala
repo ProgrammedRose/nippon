@@ -8,30 +8,34 @@ import scala.io.Source
 import scala.util.Using
 
 object ConfigLoader:
-  private val configPath = "config.yaml"
   
-  def loadFromFile(file: File): IO[Either[String, ScheduleConfig]] =
-    IO.blocking {
-      Using(Source.fromFile(file)) { source =>
-        source.mkString
-      }.toEither.left.map(_.getMessage)
-    }.flatMap {
-      case Right(yamlStr) => IO.pure(parseYaml(yamlStr))
-      case Left(err) => IO.pure(Left(s"Cannot read config file: $err"))
-    }
-  
+  // Пробуем загрузить из resources, если не работает — из корня проекта
   def loadFromResources(): IO[Either[String, ScheduleConfig]] =
     IO.blocking {
-      Option(getClass.getClassLoader.getResourceAsStream(configPath))
-        .toRight(s"Config file '$configPath' not found in resources")
-        .flatMap { stream =>
-          Using(Source.fromInputStream(stream)) { source =>
-            source.mkString
-          }.toEither.left.map(_.getMessage)
-        }
+      val stream = Option(getClass.getClassLoader.getResourceAsStream("config.yaml"))
+        .orElse(Option(ClassLoader.getSystemResourceAsStream("config.yaml")))
+        .toRight("Config file 'config.yaml' not found in resources")
+      
+      stream.flatMap { s =>
+        Using(Source.fromInputStream(s)) { source =>
+          source.mkString
+        }.toEither.left.map(_.getMessage)
+      }
     }.flatMap {
       case Right(yamlStr) => IO.pure(parseYaml(yamlStr))
-      case Left(err) => IO.pure(Left(err))
+      case Left(err) =>
+        // Fallback: пытаемся загрузить из файловой системы
+        IO.blocking {
+          val file = new File("shared/src/main/resources/config.yaml")
+          if file.exists() then
+            Using(Source.fromFile(file)) { source =>
+              source.mkString
+            }.toEither.left.map(_.getMessage)
+          else Left(s"Config file not found: $err")
+        }.flatMap {
+          case Right(yamlStr) => IO.pure(parseYaml(yamlStr))
+          case Left(err2) => IO.pure(Left(err2))
+        }
     }
   
   private def parseYaml(yamlStr: String): Either[String, ScheduleConfig] =

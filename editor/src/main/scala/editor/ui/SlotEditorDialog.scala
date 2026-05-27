@@ -5,10 +5,10 @@ import javafx.scene.layout.{VBox, HBox}
 import javafx.scene.control.{Label, TextField, ComboBox, Button, CheckBox, Alert}
 import javafx.geometry.Pos
 import javafx.stage.Stage
-import shared.{LessonType, Slot}
+import shared.{LessonType, Slot, ScheduleConfig}
 import editor.validation.Validator
 
-class SlotEditorDialog(initialSlot: Option[Slot]) extends Stage:
+class SlotEditorDialog(initialSlot: Option[Slot], cfg: ScheduleConfig) extends Stage:
   
   private val subjectField = new TextField()
   private val roomField = new TextField()

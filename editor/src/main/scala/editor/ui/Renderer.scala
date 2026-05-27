@@ -7,7 +7,6 @@ import javafx.scene.control.{Label, TextField, Button, ListView, ComboBox}
 import javafx.geometry.Pos
 import shared.*
 import cats.effect.unsafe.implicits.global
-
 import editor.model.{AppState, Actions}
 import editor.serialization.JsonDecoder
 import editor.serialization.JsonEncoder
@@ -17,7 +16,7 @@ object Renderer:
   
   def render(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
     val root = if !state.isEditorMode then renderStartScreen(state, stage, cfg)
-    else renderEditorScreen(state, stage)
+    else renderEditorScreen(state, stage, cfg)
     stage.setScene(new Scene(root, 1000, 700))
   
   private def renderStartScreen(state: AppState, stage: Stage, cfg: ScheduleConfig): Parent =
@@ -52,18 +51,19 @@ object Renderer:
     box.setAlignment(Pos.CENTER)
     box
   
-  private def renderEditorScreen(state: AppState, stage: Stage): Parent =
+  private def renderEditorScreen(state: AppState, stage: Stage, cfg: ScheduleConfig): Parent =
     val topBar = new HBox(10)
-    topBar.setStyle("-fx-padding: 10;")
+    topBar.setStyle(s"-fx-padding: 10; -fx-background-color: ${cfg.colors.oddWeekBg};")
     val groupLabel = new Label(s"Group: ${state.schedule.meta.groupName}")
+    groupLabel.setStyle(s"-fx-text-fill: ${cfg.colors.text};")
     val backBtn = new Button("← Back")
-    backBtn.setStyle("-fx-font-size: 12; -fx-padding: 8;")
+    backBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.border}; -fx-text-fill: ${cfg.colors.text};")
     backBtn.setOnAction(_ =>
       val newState = Actions.backToStart(state)
-      render(newState, stage, ScheduleConfig(2, 6, 6))
+      render(newState, stage, cfg)
     )
     val saveBtn = new Button("Save JSON")
-    saveBtn.setStyle("-fx-font-size: 12; -fx-padding: 8; -fx-background-color: #2196F3; -fx-text-fill: white;")
+    saveBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.room}; -fx-text-fill: ${cfg.colors.text};")
     saveBtn.setOnAction(_ =>
       val fileChooser = new javafx.stage.FileChooser()
       fileChooser.setInitialFileName("schedule.json")
@@ -78,33 +78,36 @@ object Renderer:
     val weekSelector = new ComboBox[WeekType]()
     weekSelector.getItems.addAll(WeekType.Odd, WeekType.Even)
     weekSelector.setValue(state.currentWeekType)
-    weekSelector.setStyle("-fx-font-size: 12;")
+    weekSelector.setStyle(s"-fx-font-size: 12; -fx-background-color: ${cfg.colors.oddWeekBg}; -fx-text-fill: ${cfg.colors.text};")
     weekSelector.setOnAction(_ =>
       val newState = Actions.setWeekType(weekSelector.getValue)(state)
-      render(newState, stage, ScheduleConfig(2, 6, 6))
+      render(newState, stage, cfg)
     )
     
     val currentWeek = state.schedule.weeks.find(_.weekType == state.currentWeekType).get
     val dayListView = new javafx.scene.control.ListView[DayBlock]()
     dayListView.getItems.addAll(currentWeek.days*)
-    dayListView.setCellFactory(_ => new DayBlockCell())
+    dayListView.setCellFactory(_ => new DayBlockCell(cfg))
     dayListView.setPrefHeight(300)
+    dayListView.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg};")
     if state.selectedDayIndex >= 0 then
       dayListView.getSelectionModel.select(state.selectedDayIndex)
     
     val slotListView = new javafx.scene.control.ListView[String]()
     slotListView.setPrefHeight(300)
     slotListView.setPrefWidth(380)
-    slotListView.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc;")
+    slotListView.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg}; -fx-border-color: ${cfg.colors.border}; -fx-text-fill: ${cfg.colors.text};")
     
     def fillSlots(dayIndex: Int): Unit =
       slotListView.getItems.clear()
       if dayIndex >= 0 then
         val day = currentWeek.days(dayIndex)
         day.slots.indices.foreach { idx =>
+          val timeOpt = cfg.lessonTimes.find(_.number == idx + 1)
+          val timeStr = timeOpt.map(t => s" (${t.start}-${t.end})").getOrElse("")
           val title = day.slots(idx) match
-            case Some(slot) => s"${idx + 1}. ${slot.subject} (${slot.room})"
-            case None => s"${idx + 1}. [Empty]"
+            case Some(slot) => s"${idx + 1}${timeStr}. ${slot.subject} (${slot.room}) - ${slot.teacher}"
+            case None => s"${idx + 1}${timeStr}. [Empty]"
           slotListView.getItems.add(title)
         }
         if state.selectedSlotIndex >= 0 then
@@ -116,38 +119,38 @@ object Renderer:
       val selectedDay = dayListView.getSelectionModel.getSelectedIndex
       if selectedDay >= 0 then
         val newState = Actions.selectDay(selectedDay)(state)
-        render(newState, stage, ScheduleConfig(2, 6, 6))
+        render(newState, stage, cfg)
     )
     
     slotListView.setOnMouseClicked(_ =>
       val selectedSlot = slotListView.getSelectionModel.getSelectedIndex
       if selectedSlot >= 0 then
         val newState = Actions.selectSlot(selectedSlot)(state)
-        render(newState, stage, ScheduleConfig(2, 6, 6))
+        render(newState, stage, cfg)
     )
     
     val buttonPanel = new HBox(10)
-    buttonPanel.setStyle("-fx-padding: 10; -fx-background-color: #f5f5f5;")
+    buttonPanel.setStyle(s"-fx-padding: 10; -fx-background-color: ${cfg.colors.evenWeekBg};")
     
     val addSlotBtn = new Button("+ Add Slot")
-    addSlotBtn.setStyle("-fx-font-size: 12; -fx-padding: 8; -fx-background-color: #4CAF50; -fx-text-fill: white;")
+    addSlotBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.lessonBg}; -fx-text-fill: ${cfg.colors.text};")
     addSlotBtn.setOnAction(_ =>
       val selectedDay = state.selectedDayIndex
       if selectedDay >= 0 then
         val day = currentWeek.days(selectedDay)
         val emptyIndex = day.slots.indexWhere(_.isEmpty)
         if emptyIndex >= 0 then
-          val dialog = new SlotEditorDialog(None)
+          val dialog = new SlotEditorDialog(None, cfg)
           dialog.showDialogAndWait().foreach { slot =>
             val newState = Actions.saveSlot(selectedDay, emptyIndex, slot)(state)
-            render(newState, stage, ScheduleConfig(2, 6, 6))
+            render(newState, stage, cfg)
           }
         else println("Selected day is full")
       else println("Select a day first")
     )
     
     val editSlotBtn = new Button("✎ Edit Selected")
-    editSlotBtn.setStyle("-fx-font-size: 12; -fx-padding: 8; -fx-background-color: #FF9800; -fx-text-fill: white;")
+    editSlotBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.teacher}; -fx-text-fill: ${cfg.colors.text};")
     editSlotBtn.setOnAction(_ =>
       val selectedDay = state.selectedDayIndex
       val selectedSlot = state.selectedSlotIndex
@@ -155,23 +158,23 @@ object Renderer:
         val day = currentWeek.days(selectedDay)
         day.slots(selectedSlot) match
           case Some(existingSlot) =>
-            val dialog = new SlotEditorDialog(Some(existingSlot))
+            val dialog = new SlotEditorDialog(Some(existingSlot), cfg)
             dialog.showDialogAndWait().foreach { slot =>
               val newState = Actions.saveSlot(selectedDay, selectedSlot, slot)(state)
-              render(newState, stage, ScheduleConfig(2, 6, 6))
+              render(newState, stage, cfg)
             }
           case None => println("Select a filled slot first")
       else println("Select a day and slot first")
     )
     
     val deleteSlotBtn = new Button("✕ Delete Selected")
-    deleteSlotBtn.setStyle("-fx-font-size: 12; -fx-padding: 8; -fx-background-color: #f44336; -fx-text-fill: white;")
+    deleteSlotBtn.setStyle(s"-fx-font-size: 12; -fx-padding: 8; -fx-background-color: ${cfg.colors.pairNumber}; -fx-text-fill: ${cfg.colors.text};")
     deleteSlotBtn.setOnAction(_ =>
       val selectedDay = state.selectedDayIndex
       val selectedSlot = state.selectedSlotIndex
       if selectedDay >= 0 && selectedSlot >= 0 then
         val newState = Actions.deleteSlot(selectedDay, selectedSlot)(state)
-        render(newState, stage, ScheduleConfig(2, 6, 6))
+        render(newState, stage, cfg)
       else println("Select a day and slot first")
     )
     
@@ -181,7 +184,7 @@ object Renderer:
     body.getChildren.addAll(dayListView, slotListView)
     
     val center = new VBox(10)
-    center.setStyle("-fx-padding: 10;")
+    center.setStyle(s"-fx-padding: 10; -fx-background-color: ${cfg.colors.oddWeekBg};")
     center.getChildren.addAll(weekSelector, body, buttonPanel)
     
     val root = new BorderPane()
