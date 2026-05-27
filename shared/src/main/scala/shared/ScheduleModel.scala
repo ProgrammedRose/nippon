@@ -29,6 +29,13 @@ final case class DayBlock(
                          ):
   require(slots.length == 6, "DayBlock must contain exactly 6 slots")
 
+object DayBlock:
+  def empty: DayBlock =
+    DayBlock(
+      day = DayOfWeek.Mon, // временно не важно для UI-инициализации
+      slots = Vector.fill(6)(None)
+    )
+
 // Тип недели
 enum WeekType:
   case Odd  // нечётная
@@ -40,6 +47,20 @@ final case class Week(
                        days:     Vector[DayBlock]   // длина всегда 6
                      ):
   require(days.length == 6, "Week must contain exactly 6 days")
+
+object Week:
+  def empty(t: WeekType, cfg: ScheduleConfig): Week =
+    Week(
+      t,
+      Vector(
+        DayBlock(DayOfWeek.Mon, Vector.fill(cfg.slotsPerDay)(None)),
+        DayBlock(DayOfWeek.Tue, Vector.fill(cfg.slotsPerDay)(None)),
+        DayBlock(DayOfWeek.Wed, Vector.fill(cfg.slotsPerDay)(None)),
+        DayBlock(DayOfWeek.Thu, Vector.fill(cfg.slotsPerDay)(None)),
+        DayBlock(DayOfWeek.Fri, Vector.fill(cfg.slotsPerDay)(None)),
+        DayBlock(DayOfWeek.Sat, Vector.fill(cfg.slotsPerDay)(None))
+      )
+    )
 
 // Метаданные расписания
 final case class Meta(
