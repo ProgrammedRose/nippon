@@ -3,6 +3,7 @@ package editor.model
 import cats.effect.IO
 import shared.*
 import editor.serialization.JsonEncoder
+import editor.validation.Validator
 import java.io.File
 
 type Reducer = AppState => AppState
@@ -34,35 +35,39 @@ object Actions:
   def setFontSize(size: String): Reducer = _.copy(fontSize = size)
   
   // Slot selection
-  def selectSlot(dayIdx: Int, slotIdx: Int): Reducer = 
-    _.copy(selectedDayIndex = dayIdx, selectedSlotIndex = slotIdx)
+  def selectDay(dayIdx: Int): Reducer = _.copy(selectedDayIndex = dayIdx, selectedSlotIndex = -1)
+  def selectSlot(slotIdx: Int): Reducer = _.copy(selectedSlotIndex = slotIdx)
   
-  def clearSlotSelection: Reducer = 
+  def clearSlotSelection: Reducer =
     _.copy(selectedDayIndex = -1, selectedSlotIndex = -1)
   
   // Slot editing mode
-  def openSlotEditor(slotIdx: Int): Reducer = 
+  def openSlotEditor(slotIdx: Int): Reducer =
     _.copy(slotEditMode = true, editingSlotIndex = slotIdx)
   
-  def cancelSlotEdit: Reducer = 
+  def cancelSlotEdit: Reducer =
     _.copy(slotEditMode = false, editingSlotIndex = -1)
   
-  // Slot CRUD operations (pure, no mutation)
-  def saveSlot(dayIdx: Int, slotIdx: Int, slot: Slot): Reducer = s =>
-    val currentWeek = s.schedule.weeks.find(_.weekType == s.currentWeekType).get
-    val day = currentWeek.days(dayIdx)
-    val updatedDay = day.copy(slots = day.slots.updated(slotIdx, Some(slot)))
-    val updatedDays = currentWeek.days.updated(dayIdx, updatedDay)
-    val updatedWeek = currentWeek.copy(days = updatedDays)
-    val updatedWeeks = s.schedule.weeks.map(w => 
-      if w.weekType == s.currentWeekType then updatedWeek else w
-    )
-    val updatedSchedule = s.schedule.copy(weeks = updatedWeeks)
-    s.copy(
-      schedule = updatedSchedule,
-      slotEditMode = false,
-      editingSlotIndex = -1
-    )
+  // Заменить существующий saveSlot на:
+  def saveSlot(dayIndex: Int, slotIndex: Int, slot: Slot): Reducer = s =>
+    Validator.validateSlot(slot) match
+      case Right(validSlot) =>
+        val week = s.schedule.weeks.find(_.weekType == s.currentWeekType).get
+        val updatedWeek = week.copy(
+          days = week.days.updated(
+            dayIndex,
+            week.days(dayIndex).copy(
+              slots = week.days(dayIndex).slots.updated(slotIndex, Some(validSlot))
+            )
+          )
+        )
+        val updatedSchedule = s.schedule.copy(
+          weeks = s.schedule.weeks.map(w => if w.weekType == s.currentWeekType then updatedWeek else w)
+        )
+        s.copy(schedule = updatedSchedule)
+      case Left(error) =>
+        println(s"Validation error: $error")
+        s
   
   def deleteSlot(dayIdx: Int, slotIdx: Int): Reducer = s =>
     val currentWeek = s.schedule.weeks.find(_.weekType == s.currentWeekType).get
@@ -70,7 +75,7 @@ object Actions:
     val updatedDay = day.copy(slots = day.slots.updated(slotIdx, None))
     val updatedDays = currentWeek.days.updated(dayIdx, updatedDay)
     val updatedWeek = currentWeek.copy(days = updatedDays)
-    val updatedWeeks = s.schedule.weeks.map(w => 
+    val updatedWeeks = s.schedule.weeks.map(w =>
       if w.weekType == s.currentWeekType then updatedWeek else w
     )
     val updatedSchedule = s.schedule.copy(weeks = updatedWeeks)

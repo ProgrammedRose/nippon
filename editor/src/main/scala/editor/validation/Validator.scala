@@ -55,7 +55,7 @@ object Validator:
     }
     
     if slotErrors.isEmpty then Right(dayBlock)
-    else Left(InvalidSchedule(slotErrors))
+    else Left(InvalidSchedule(slotErrors.toList))
 
   /**
    * Валидация Week (неделя - чётная или нечётная)
@@ -66,7 +66,7 @@ object Validator:
     }
     
     if dayErrors.isEmpty then Right(week)
-    else Left(InvalidSchedule(dayErrors))
+    else Left(InvalidSchedule(dayErrors.toList))
 
   /**
    * Валидация ScheduleFile (полное расписание)

@@ -49,4 +49,3 @@ object JsonEncoder:
       case Right(_) => Right(())
       case Left(ex) => Left(s"Failed to save: ${ex.getMessage}")
     }
-}

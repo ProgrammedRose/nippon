@@ -8,10 +8,6 @@ import shared.*
 
 class EditorScreen:
   private val root = new BorderPane()
-  private var currentSchedule: ScheduleFile = ScheduleFactory.empty(
-    Meta("1.0", "Group", java.time.LocalDateTime.now.toString),
-    ScheduleConfig(2, 6, 6)
-  )
   
   // Верхняя панель
   private val topPanel = new HBox(15)
@@ -71,14 +67,11 @@ class EditorScreen:
   def getRoot: BorderPane = root
   
   def setScheduleFile(scheduleFile: ScheduleFile, weekType: WeekType): Unit =
-    currentSchedule = scheduleFile
     groupInput.setText(scheduleFile.meta.groupName)
     weekCombo.setValue(if weekType == WeekType.Odd then "Odd Week" else "Even Week")
     daysListView.getItems.clear()
     val week = scheduleFile.weeks.find(_.weekType == weekType).get
     daysListView.getItems.addAll(week.days*)
-  
-  def getScheduleFile: ScheduleFile = currentSchedule
   
   def getBackButton: Button = backBtn
   def getSaveButton: Button = saveBtn
@@ -87,7 +80,6 @@ class EditorScreen:
   def getDeleteSlotButton: Button = deleteSlotBtn
   def getWeekCombo: ComboBox[String] = weekCombo
   def getDaysListView: ListView[DayBlock] = daysListView
-  def getWeekCombo: ComboBox[String] = weekCombo
   
   // Кастомная ячейка для отображения DayBlock
   private class DayBlockCell extends ListCell[DayBlock] {
@@ -127,4 +119,3 @@ class EditorScreen:
       }
     }
   }
-}

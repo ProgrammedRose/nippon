@@ -1,106 +1,105 @@
 package editor.ui
 
-import javafx.scene.control.{Dialog, TextField, ComboBox, Label, ButtonType}
+import javafx.scene.Scene
 import javafx.scene.layout.{VBox, HBox}
+import javafx.scene.control.{Label, TextField, ComboBox, Button, CheckBox, Alert}
 import javafx.geometry.Pos
-import javafx.scene.text.Font
-import shared.*
+import javafx.stage.Stage
+import shared.{LessonType, Slot}
+import editor.validation.Validator
 
-class SlotEditorDialog(existingSlot: Option[Slot]) extends Dialog[Slot]:
+class SlotEditorDialog(initialSlot: Option[Slot]) extends Stage:
   
-  setTitle(if existingSlot.isDefined then "Edit Slot" else "Create Slot")
-  setHeaderText(if existingSlot.isDefined then "Edit lesson information" else "Add new lesson")
-  
-  private val contentPane = new VBox(10)
-  contentPane.setStyle("-fx-padding: 20;")
-  
-  // Subject field
-  private val subjectLabel = new Label("Subject:")
-  subjectLabel.setFont(new Font(12))
   private val subjectField = new TextField()
-  subjectField.setPromptText("e.g., Mathematics, Physics")
-  subjectField.setPrefWidth(300)
-  existingSlot.foreach(slot => subjectField.setText(slot.subject))
-  val subjectBox = new HBox(10, subjectLabel, subjectField)
-  subjectBox.setAlignment(Pos.CENTER_LEFT)
-  
-  // Room field
-  private val roomLabel = new Label("Room:")
-  roomLabel.setFont(new Font(12))
   private val roomField = new TextField()
-  roomField.setPromptText("e.g., 101A")
-  roomField.setPrefWidth(300)
-  existingSlot.foreach(slot => roomField.setText(slot.room))
-  val roomBox = new HBox(10, roomLabel, roomField)
-  roomBox.setAlignment(Pos.CENTER_LEFT)
-  
-  // Teacher field
-  private val teacherLabel = new Label("Teacher:")
-  teacherLabel.setFont(new Font(12))
   private val teacherField = new TextField()
-  teacherField.setPromptText("e.g., Dr. Smith")
-  teacherField.setPrefWidth(300)
-  existingSlot.foreach(slot => teacherField.setText(slot.teacher))
-  val teacherBox = new HBox(10, teacherLabel, teacherField)
-  teacherBox.setAlignment(Pos.CENTER_LEFT)
   
-  // Lesson type combo
-  private val typeLabel = new Label("Type:")
-  typeLabel.setFont(new Font(12))
-  private val typeCombo = new ComboBox[String]()
-  typeCombo.getItems.addAll("Lecture", "Practice", "Lab")
-  typeCombo.setValue("Lecture")
-  existingSlot.foreach { slot =>
-    val typeStr = slot.lessonType match
-      case LessonType.Lecture => "Lecture"
-      case LessonType.Practice => "Practice"
-      case LessonType.Lab => "Lab"
-    typeCombo.setValue(typeStr)
+  private val lessonTypeCombo = new ComboBox[LessonType]()
+  lessonTypeCombo.getItems.addAll(LessonType.Lecture, LessonType.Practice, LessonType.Lab)
+  lessonTypeCombo.setValue(LessonType.Lecture)
+  
+  private val subgroupAll = new CheckBox("Вся группа")
+  private val subgroup1 = new CheckBox("1 п/гр")
+  private val subgroup2 = new CheckBox("2 п/гр")
+  private val subgroup3 = new CheckBox("3 п/гр")
+  private val subgroup4 = new CheckBox("4 п/гр")
+  
+  initialSlot.foreach { slot =>
+    subjectField.setText(slot.subject)
+    roomField.setText(slot.room)
+    teacherField.setText(slot.teacher)
+    lessonTypeCombo.setValue(slot.lessonType)
+    
+    val subs = slot.subgroups.toSet
+    subgroupAll.setSelected(subs.isEmpty)
+    subgroup1.setSelected(subs.contains("1"))
+    subgroup2.setSelected(subs.contains("2"))
+    subgroup3.setSelected(subs.contains("3"))
+    subgroup4.setSelected(subs.contains("4"))
   }
-  val typeBox = new HBox(10, typeLabel, typeCombo)
-  typeBox.setAlignment(Pos.CENTER_LEFT)
   
-  // Subgroups field (comma-separated)
-  private val subgroupsLabel = new Label("Subgroups:")
-  subgroupsLabel.setFont(new Font(12))
-  private val subgroupsField = new TextField()
-  subgroupsField.setPromptText("e.g., 1, 2, 3 (comma-separated)")
-  subgroupsField.setPrefWidth(300)
-  existingSlot.foreach(slot => subgroupsField.setText(slot.subgroups.mkString(", ")))
-  val subgroupsBox = new HBox(10, subgroupsLabel, subgroupsField)
-  subgroupsBox.setAlignment(Pos.CENTER_LEFT)
+  private val saveBtn = new Button("Сохранить")
+  private val cancelBtn = new Button("Отмена")
   
-  contentPane.getChildren.addAll(subjectBox, roomBox, teacherBox, typeBox, subgroupsBox)
+  private val root = new VBox(10)
+  root.setStyle("-fx-padding: 15;")
+  root.getChildren.addAll(
+    new Label("Предмет:"), subjectField,
+    new Label("Аудитория:"), roomField,
+    new Label("Преподаватель:"), teacherField,
+    new Label("Тип занятия:"), lessonTypeCombo,
+    new Label("Подгруппы:"),
+    new HBox(10, subgroupAll, subgroup1, subgroup2, subgroup3, subgroup4),
+    new HBox(10, saveBtn, cancelBtn)
+  )
   
-  setDialogPane(new javafx.scene.control.DialogPane())
-  getDialogPane.setContent(contentPane)
-  getDialogPane.getButtonTypes.addAll(ButtonType.OK, ButtonType.CANCEL)
+  setTitle(if initialSlot.isDefined then "Редактировать занятие" else "Добавить занятие")
+  setScene(new Scene(root, 400, 450))
   
-  // Result converter: extract form data into Slot
-  setResultConverter { button =>
-    if button == ButtonType.OK then
-      val subject = subjectField.getText.trim
-      val room = roomField.getText.trim
-      val teacher = teacherField.getText.trim
-      val lessonType = typeCombo.getValue match
-        case "Lecture" => LessonType.Lecture
-        case "Practice" => LessonType.Practice
-        case "Lab" => LessonType.Lab
-        case _ => LessonType.Lecture
-      
-      val subgroups = subgroupsField.getText.trim
-        .split(",")
-        .map(_.trim)
-        .filter(_.nonEmpty)
-        .toList
-      
-      Slot(
-        subject = subject,
-        room = room,
-        teacher = teacher,
-        lessonType = lessonType,
-        subgroups = if subgroups.nonEmpty then subgroups else List("All")
-      )
-    else
-      null.asInstanceOf[Slot]
+  private var result: Option[Slot] = None
+  
+  saveBtn.setOnAction { _ =>
+    val subgroups = (subgroup1.isSelected, subgroup2.isSelected, subgroup3.isSelected, subgroup4.isSelected) match
+      case (s1, s2, s3, s4) =>
+        List(
+          if s1 then Some("1") else None,
+          if s2 then Some("2") else None,
+          if s3 then Some("3") else None,
+          if s4 then Some("4") else None
+        ).flatten
+    
+    val finalSubgroups = if subgroupAll.isSelected then List.empty[String] else subgroups
+    
+    val slot = Slot(
+      subject = subjectField.getText(),
+      room = roomField.getText(),
+      teacher = teacherField.getText(),
+      lessonType = lessonTypeCombo.getValue,
+      subgroups = finalSubgroups
+    )
+    
+    Validator.validateSlot(slot) match
+      case Right(validSlot) =>
+        result = Some(validSlot)
+        close()
+      case Left(error) =>
+        val alert = new Alert(Alert.AlertType.ERROR)
+        alert.setTitle("Ошибка валидации")
+        alert.setHeaderText("Некорректные данные")
+        val message = error match
+          case Validator.EmptyField(field) => s"Поле '$field' не может быть пустым"
+          case Validator.InvalidSlot(errors) =>
+            errors.map {
+              case Validator.EmptyField(f) => s"Поле '$f' не может быть пустым"
+              case e => e.toString
+            }.mkString("\n")
+          case _ => "Проверьте введённые данные"
+        alert.setContentText(message)
+        alert.showAndWait()
   }
+  
+  cancelBtn.setOnAction(_ => close())
+  
+  def showDialogAndWait(): Option[Slot] =
+    super.showAndWait()
+    result
