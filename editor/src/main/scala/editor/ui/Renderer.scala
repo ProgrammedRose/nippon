@@ -164,8 +164,44 @@ object Renderer:
       Validator.validateScheduleFile(state.schedule) match
         case Left(error) =>
           showError(error.toString)
-        
+
         case Right(_) =>
+          val tempJson = File.createTempFile("tempTEST", ".json", File("\\C:\\Users\\nonro\\Desktop\\"))
+          println(s"TEMP: ${tempJson.getAbsolutePath}")
+
+          JsonEncoder
+            .saveScheduleToFile(state.schedule, tempJson)
+            .unsafeRunSync() match
+
+            case Left(error) =>
+              showError(error)
+
+            case Right(_) =>
+              val chooser = FileChooser()
+              chooser.setInitialFileName("schedule.html")
+              val outputFile = File.createTempFile("tempTEST222", ".html", File("\\C:\\Users\\nonro\\Desktop\\"))
+
+              if outputFile != null then
+
+                // ▼ ЗАМЕНИТЬ старый command на этот ▼
+                val jarPath = "C:\\University Folder\\Programming Folder\\ScalaLabs\\Gufka\\generator\\target\\scala-3.3.7\\generator.jar" //
+
+                val command = List(
+                  "java", "-jar", jarPath,
+                  "--input",  tempJson.getAbsolutePath,
+                  "--output", outputFile.getAbsolutePath,
+                  "--theme",  "dark",
+                  "--format", "html"
+                )
+                // ▲ конец замены ▲
+
+                val exitCode = Process(command).!
+
+                if exitCode == 0 then
+                  showInfo("HTML успешно сгенерирован")
+                else
+                  showError(s"Generator завершился с кодом: $exitCode")
+/*        case Right(_) =>
           val tempJson = File.createTempFile("tempTEST", ".json", File("\\C:\\Users\\nonro\\Desktop\\"))
           println(s"TEMP: ${tempJson.getAbsolutePath}")
 
@@ -202,7 +238,7 @@ object Renderer:
                 else
                   showError(
                     s"Generator завершился с кодом: $exitCode"
-                  )
+                  )*/
     )
     
     val buttons = HBox(10)
