@@ -2,12 +2,13 @@ package shared
 
 import io.circe.{Decoder, Encoder, Json}
 
+/** Класс для чтения времени начала/конца одной пары */
 final case class LessonTime(
                              number: Int,
                              start: String,
                              end: String
                            )
-
+/** Методы для библиотеки circle, считывающие этот класс из файла */
 object LessonTime:
   val decoder: Decoder[LessonTime] = Decoder.instance { cursor =>
     for
@@ -15,14 +16,6 @@ object LessonTime:
       start  <- cursor.downField("start").as[String]
       end    <- cursor.downField("end").as[String]
     yield LessonTime(number, start, end)
-  }
-  
-  val encoder: Encoder[LessonTime] = Encoder.instance { lt =>
-    Json.obj(
-      "number" -> Json.fromInt(lt.number),
-      "start"  -> Json.fromString(lt.start),
-      "end"    -> Json.fromString(lt.end)
-    )
   }
 
 final case class ColorsConfig(
@@ -51,21 +44,12 @@ object ColorsConfig:
       teacher     <- cursor.downField("teacher").as[String]
       pairNumber  <- cursor.downField("pair_number").as[String]
       border      <- cursor.downField("border").as[String]
-    yield ColorsConfig(oddWeekBg, evenWeekBg, lessonBg, emptySlotBg, text, dayHeader, room, teacher, pairNumber, border)
-  }
-  
-  val encoder: Encoder[ColorsConfig] = Encoder.instance { cc =>
-    Json.obj(
-      "odd_week_bg"   -> Json.fromString(cc.oddWeekBg),
-      "even_week_bg"  -> Json.fromString(cc.evenWeekBg),
-      "lesson_bg"     -> Json.fromString(cc.lessonBg),
-      "empty_slot_bg" -> Json.fromString(cc.emptySlotBg),
-      "text"          -> Json.fromString(cc.text),
-      "day_header"    -> Json.fromString(cc.dayHeader),
-      "room"          -> Json.fromString(cc.room),
-      "teacher"       -> Json.fromString(cc.teacher),
-      "pair_number"   -> Json.fromString(cc.pairNumber),
-      "border"        -> Json.fromString(cc.border)
+    yield ColorsConfig(
+      oddWeekBg, evenWeekBg, 
+      lessonBg, emptySlotBg, 
+      text, dayHeader, 
+      room, teacher, 
+      pairNumber, border
     )
   }
 
@@ -86,14 +70,4 @@ object ScheduleConfig:
       lessonTimes <- cursor.downField("lesson_times").as[List[LessonTime]](Decoder.decodeList(LessonTime.decoder))
       colors      <- cursor.downField("colors").as[ColorsConfig](ColorsConfig.decoder)
     yield ScheduleConfig(weeks, daysPerWeek, slotsPerDay, lessonTimes, colors)
-  }
-  
-  val encoder: Encoder[ScheduleConfig] = Encoder.instance { cfg =>
-    Json.obj(
-      "weeks"          -> Json.fromInt(cfg.weeks),
-      "days_per_week"  -> Json.fromInt(cfg.daysPerWeek),
-      "slots_per_day"  -> Json.fromInt(cfg.slotsPerDay),
-      "lesson_times"   -> Encoder.encodeList(LessonTime.encoder)(cfg.lessonTimes),
-      "colors"         -> ColorsConfig.encoder(cfg.colors)
-    )
   }
