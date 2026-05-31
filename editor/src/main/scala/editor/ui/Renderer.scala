@@ -17,15 +17,17 @@ import scala.sys.process.Process
 
 object Renderer:
   
+  // стартовая функция, вызываемая в FxApp
   def render(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
     val root = renderEditorScreen(state, stage, cfg)
     stage.setScene(Scene(root, 1280, 760))
+  
   
   private def renderEditorScreen(state: AppState, stage: Stage, cfg: ScheduleConfig): Parent =
     val root = BorderPane()
     root.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg};")
     
-    // верхняя панель
+    // заголовок, поле ввода группы и кнопки управления файлами
     val title = Label("Schedule Editor")
     title.setStyle(s"-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: ${cfg.colors.text};")
     
@@ -42,6 +44,7 @@ object Renderer:
          | -fx-border-radius: 10;
          |""".stripMargin
     )
+    // синхронизация имени группы с состоянием приложения
     groupField.textProperty.addListener((_, _, newValue) =>
       val updated = state.copy(schedule = state.schedule.copy(meta = state.schedule.meta.copy(groupName = newValue)))
       render(updated, stage, cfg)
@@ -66,6 +69,7 @@ object Renderer:
     val saveButton = createButton("Сохранить JSON", cfg.colors.lessonBg)
     val htmlButton = createButton("Сгенерировать HTML", cfg.colors.teacher)
     
+    // вспомогательные функции определены после renderEditorScreen
     loadButton.setOnAction(_ => onLoad(state, stage, cfg))
     saveButton.setOnAction(_ => onSave(state, stage, cfg))
     htmlButton.setOnAction(_ => onGenerate(state, cfg, stage))
@@ -74,7 +78,7 @@ object Renderer:
     val top = VBox(15, title, groupField, buttons)
     top.setPadding(Insets(20))
     
-    // выбор недели
+    // выбор типа недели (чётная / нечётная) с обновлением отображения
     val weekSelector = ComboBox[WeekType]()
     weekSelector.getItems.addAll(WeekType.Odd, WeekType.Even)
     weekSelector.setValue(state.currentWeekType)
@@ -91,12 +95,12 @@ object Renderer:
     weekSelector.setCellFactory(_ => weekCell)
     weekSelector.setOnAction(_ => render(Actions.setWeekType(weekSelector.getValue)(state), stage, cfg))
     
-    
+    // данные текущей недели (отображаемой)
     val currentWeek = state.schedule.weeks.find(_.weekType == state.currentWeekType).get
     
     // список дней
     val dayList = ListView[DayBlock]()
-    dayList.getItems.addAll(currentWeek.days*)
+    dayList.getItems.addAll(currentWeek.days *)
     dayList.setCellFactory(_ => DayBlockCell(cfg))
     dayList.setPrefWidth(420)
     dayList.setStyle("-fx-background-color: transparent; -fx-control-inner-background: transparent;")
@@ -104,7 +108,7 @@ object Renderer:
       dayList.getSelectionModel.select(state.selectedDayIndex)
       dayList.scrollTo(state.selectedDayIndex)
     
-    // список пар
+    // список пар (текстовое представление слотов)
     val slotList = ListView[String]()
     slotList.setStyle(
       s"""
@@ -121,19 +125,19 @@ object Renderer:
           val time = cfg.lessonTimes.find(_.number == idx + 1).map(t => s"${t.start}-${t.end}").getOrElse("")
           maybeSlot match
             case Some(slot) => s"${idx + 1}. [$time] ${slot.subject} / ${slot.teacher} / ${slot.room}"
-            case None       => s"${idx + 1}. [$time] Пусто"
+            case None => s"${idx + 1}. [$time] Пусто"
         }
       else Vector.empty
-    slotList.getItems.addAll(slotValues*)
+    slotList.getItems.addAll(slotValues *)
     if state.selectedSlotIndex >= 0 then
       slotList.getSelectionModel.select(state.selectedSlotIndex)
       slotList.scrollTo(state.selectedSlotIndex)
     
-    // выбор
+    // обработка кликов по дню и по слоту для обновления выбранных индексов в состоянии
     dayList.setOnMouseClicked(_ => onDaySelected(state, stage, cfg, dayList.getSelectionModel.getSelectedIndex))
     slotList.setOnMouseClicked(_ => onSlotSelected(state, stage, cfg, slotList.getSelectionModel.getSelectedIndex))
     
-    // кнопки слева снизу
+    // кнопки добавления, редактирования, удаления пары
     val addButton = createButton("+ Добавить", cfg.colors.lessonBg)
     val editButton = createButton("Изменить", cfg.colors.teacher)
     val deleteButton = createButton("✕ Удалить", cfg.colors.pairNumber)
@@ -144,7 +148,7 @@ object Renderer:
     
     val actions = HBox(10, addButton, editButton, deleteButton)
     
-    // основное тело окна
+    // расположение: список дней слева, список пар справа, кнопки снизу
     val body = HBox(20, dayList, slotList)
     body.setPadding(Insets(20))
     HBox.setHgrow(slotList, Priority.ALWAYS)
@@ -168,32 +172,44 @@ object Renderer:
   private def onSave(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
     Validator.validateScheduleFile(state.schedule) match
       case Left(error) => showError(error.toString)
-      case Right(_) =>
-        val chooser = FileChooser()
-        chooser.setInitialFileName("schedule.json")
-        val file = chooser.showSaveDialog(stage)
-        if file != null then
-          JsonEncoder.saveScheduleToFile(state.schedule, file).unsafeRunSync() match
-            case Right(_) => showInfo("JSON успешно сохранён")
-            case Left(error) => showError(error)
+      case Right(_) => saveScheduleToFile(state.schedule, stage, cfg)
+  
+  private def saveScheduleToFile(schedule: ScheduleFile, stage: Stage, cfg: ScheduleConfig): Unit =
+    val chooser = new FileChooser()
+    chooser.setInitialFileName("schedule.json")
+    Option(chooser.showSaveDialog(stage)).foreach { file =>
+      JsonEncoder.saveScheduleToFile(schedule, file).unsafeRunSync() match
+        case Right(_) => showInfo("JSON успешно сохранён")
+        case Left(error) => showError(error)
+    }
   
   private def onGenerate(state: AppState, cfg: ScheduleConfig, stage: Stage): Unit =
     Validator.validateScheduleFile(state.schedule) match
       case Left(error) => showError(error.toString)
-      case Right(_) =>
-        val tempJson = File.createTempFile("tempSchedule", ".json")
-        JsonEncoder.saveScheduleToFile(state.schedule, tempJson).unsafeRunSync() match
-          case Left(error) => showError(error)
-          case Right(_) =>
-            val jarPath = "generator/target/scala-3.3.7/generator.jar"
-            val chooser = FileChooser()
-            chooser.setInitialFileName("schedule.html")
-            val outputFile = chooser.showSaveDialog(stage)
-            if outputFile != null then
-              val command = List("java", "-jar", jarPath, "--input", tempJson.getAbsolutePath, "--output", outputFile.getAbsolutePath, "--theme", "dark", "--format", "html")
-              val exitCode = Process(command).!
-              if exitCode == 0 then showInfo("HTML успешно сгенерирован")
-              else showError(s"Generator завершился с кодом: $exitCode")
+      case Right(_) => generateHtmlFromSchedule(state.schedule, cfg, stage)
+  
+  private def generateHtmlFromSchedule(schedule: ScheduleFile, cfg: ScheduleConfig, stage: Stage): Unit =
+    val tempJson = File.createTempFile("tempSchedule", ".json")
+    JsonEncoder.saveScheduleToFile(schedule, tempJson).unsafeRunSync() match
+      case Left(error) => showError(error)
+      case Right(_) => askOutputFileAndRunGenerator(tempJson, stage)
+  
+  private def askOutputFileAndRunGenerator(tempJson: File, stage: Stage): Unit =
+    val chooser = new FileChooser()
+    chooser.setInitialFileName("schedule.html")
+    Option(chooser.showSaveDialog(stage)).foreach { outputFile =>
+      val jarPath = "generator/target/scala-3.3.7/generator.jar"
+      val command = List(
+        "java", "-jar", jarPath,
+        "--input", tempJson.getAbsolutePath,
+        "--output", outputFile.getAbsolutePath,
+        "--theme", "dark",
+        "--format", "html"
+      )
+      val exitCode = Process(command).!
+      if exitCode == 0 then showInfo("HTML успешно сгенерирован")
+      else showError(s"Generator завершился с кодом: $exitCode")
+    }
   
   private def onDaySelected(state: AppState, stage: Stage, cfg: ScheduleConfig, idx: Int): Unit =
     if idx >= 0 then render(Actions.selectDay(idx)(state), stage, cfg)
