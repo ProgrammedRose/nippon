@@ -25,7 +25,7 @@ object Renderer:
     val root = BorderPane()
     root.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg};")
     
-    // ---- Top bar ----
+    // верхняя панель
     val title = Label("Schedule Editor")
     title.setStyle(s"-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: ${cfg.colors.text};")
     
@@ -74,7 +74,7 @@ object Renderer:
     val top = VBox(15, title, groupField, buttons)
     top.setPadding(Insets(20))
     
-    // ---- Week selector ----
+    // выбор недели
     val weekSelector = ComboBox[WeekType]()
     weekSelector.getItems.addAll(WeekType.Odd, WeekType.Even)
     weekSelector.setValue(state.currentWeekType)
@@ -91,10 +91,10 @@ object Renderer:
     weekSelector.setCellFactory(_ => weekCell)
     weekSelector.setOnAction(_ => render(Actions.setWeekType(weekSelector.getValue)(state), stage, cfg))
     
-    // ---- Data ----
+    
     val currentWeek = state.schedule.weeks.find(_.weekType == state.currentWeekType).get
     
-    // ---- Day list ----
+    // список дней
     val dayList = ListView[DayBlock]()
     dayList.getItems.addAll(currentWeek.days*)
     dayList.setCellFactory(_ => DayBlockCell(cfg))
@@ -104,7 +104,7 @@ object Renderer:
       dayList.getSelectionModel.select(state.selectedDayIndex)
       dayList.scrollTo(state.selectedDayIndex)
     
-    // ---- Slot list ----
+    // список пар
     val slotList = ListView[String]()
     slotList.setStyle(
       s"""
@@ -129,13 +129,13 @@ object Renderer:
       slotList.getSelectionModel.select(state.selectedSlotIndex)
       slotList.scrollTo(state.selectedSlotIndex)
     
-    // ---- Selections ----
+    // выбор
     dayList.setOnMouseClicked(_ => onDaySelected(state, stage, cfg, dayList.getSelectionModel.getSelectedIndex))
     slotList.setOnMouseClicked(_ => onSlotSelected(state, stage, cfg, slotList.getSelectionModel.getSelectedIndex))
     
-    // ---- Action buttons ----
+    // кнопки слева снизу
     val addButton = createButton("+ Добавить", cfg.colors.lessonBg)
-    val editButton = createButton("✎ Изменить", cfg.colors.teacher)
+    val editButton = createButton("Изменить", cfg.colors.teacher)
     val deleteButton = createButton("✕ Удалить", cfg.colors.pairNumber)
     
     addButton.setOnAction(_ => onAdd(state, stage, cfg, dayList, currentWeek))
@@ -144,7 +144,7 @@ object Renderer:
     
     val actions = HBox(10, addButton, editButton, deleteButton)
     
-    // ---- Body ----
+    // основное тело окна
     val body = HBox(20, dayList, slotList)
     body.setPadding(Insets(20))
     HBox.setHgrow(slotList, Priority.ALWAYS)
@@ -156,7 +156,7 @@ object Renderer:
     root.setCenter(center)
     root
   
-  // ---------- Вспомогательные методы для обработчиков ----------
+  // Вспомогательные методы для обработчиков
   private def onLoad(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
     val chooser = FileChooser()
     val file = chooser.showOpenDialog(stage)
