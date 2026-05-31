@@ -1,22 +1,15 @@
 package generator
 
-
 import cats.effect.{ExitCode, IO, IOApp}
-import cats.syntax.either.*
-
 import generator.output.{FileSaver, SaveError}
 import generator.parser.{DecodeError, JsonDecoder}
-import generator.render.{HtmlRenderer, RenderError, Renderer,
-    SvgRenderer, SecHtmlRenderer, ThirdHtmlRenderer}
+import generator.render.{HtmlRenderer, RenderError, Renderer, SecHtmlRenderer, SvgRenderer, ThirdHtmlRenderer}
 import generator.theme.{Theme, ThemeError, ThemeLoader}
 import shared.ScheduleFile
 
-import java.nio.file.Path
+import scala.annotation.tailrec
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Аргументы командной строки
-// ─────────────────────────────────────────────────────────────────────────────
-
+/** Аргументы командной строки генератора. */
 final case class Args(
                        inputPath:  String,
                        outputPath: String,
@@ -24,145 +17,126 @@ final case class Args(
                        format:     String
                      )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Точка входа
-// ─────────────────────────────────────────────────────────────────────────────
-
+/** Точка входа в генератор расписаний. */
 object Main extends IOApp:
-
+  
   override def run(args: List[String]): IO[ExitCode] =
     parseArgs(args) match
       case Left(usageError) =>
-        printError(usageError) *>
-          printUsage *>
-          IO.pure(ExitCode.Error)
-
+        for
+          _ <- printError(usageError)
+          _ <- printUsage
+        yield ExitCode.Error
       case Right(cliArgs) =>
-        pipeline(cliArgs).map:
+        pipeline(cliArgs).map {
           case Right(_)    => ExitCode.Success
           case Left(error) => ExitCode.Error
-
-  // ── Пайплайн ────────────────────────────────────────────────────────────────
-  //
-  // Каждый шаг возвращает IO[Either[AppError, A]].
-  // flatMap разворачивает IO, для Either используем .flatMap внутри IO.
-  // При первой же Left вся цепочка «замыкается» — следующие шаги не выполняются.
-
+        }
+  
+  /** Загрузка → тема → рендер → сохранение. */
   private def pipeline(args: Args): IO[Either[AppError, Unit]] =
     for
       scheduleE <- loadSchedule(args.inputPath)
       themeE    <- loadTheme(args.themeName)
-      resultE   <- IO.pure:
-        for
-          schedule <- scheduleE
-          theme    <- themeE
-          renderer <- selectRenderer(args.format)
-          content  <- renderer.render(schedule, theme).leftMap(AppError.Render.apply)
-        yield (content, args.outputPath)
-      saveE     <- resultE match
-        case Left(err)              => IO.pure(Left(err))
+      resultE   <- IO.pure {
+        (scheduleE, themeE) match
+          case (Right(schedule), Right(theme)) =>
+            selectRenderer(args.format).flatMap { renderer =>
+              renderer.render(schedule, theme) match
+                case Right(content) => Right((content, args.outputPath))
+                case Left(err)      => Left(AppError.Render(err))
+            }
+          case (Left(err), _) => Left(err)
+          case (_, Left(err)) => Left(err)
+      }
+      saveE <- resultE match
+        case Left(err) => IO.pure(Left(err))
         case Right((content, path)) => saveResult(path, content)
     yield saveE
-
-  // ── Шаги пайплайна ──────────────────────────────────────────────────────────
-
+  
   private def loadSchedule(inputPath: String): IO[Either[AppError, ScheduleFile]] =
-    JsonDecoder
-      .fromFilePath(inputPath)
-      .flatMap:
-        case Left(err)       =>
-          printError(s"[json] ${err.message}") *>
-            IO.pure(Left(AppError.Decode(err)))
-        case Right(schedule) =>
-          printInfo(s"Schedule is loaded for group: ${schedule.meta.groupName}") *>
-            IO.pure(Right(schedule))
-
+    JsonDecoder.fromFilePath(inputPath).flatMap {
+      case Left(err) =>
+        for
+          _ <- printError(s"[json] ${err.message}")
+        yield Left(AppError.Decode(err))
+      case Right(schedule) =>
+        for
+          _ <- printInfo(s"Schedule is loaded for group: ${schedule.meta.groupName}")
+        yield Right(schedule)
+    }
+  
   private def loadTheme(themeName: String): IO[Either[AppError, Theme]] =
-    ThemeLoader
-      .load(themeName)
-      .flatMap:
-        case Left(err)    =>
-          printError(s"[theme] ${err.message}") *>
-            IO.pure(Left(AppError.Theme(err)))
-        case Right(theme) =>
-          printInfo(s"Loaded theme: ${theme.name}") *>
-            IO.pure(Right(theme))
-
+    ThemeLoader.load(themeName).flatMap {
+      case Left(err) =>
+        for
+          _ <- printError(s"[theme] ${err.message}")
+        yield Left(AppError.Theme(err))
+      case Right(theme) =>
+        for
+          _ <- printInfo(s"Loaded theme: ${theme.name}")
+        yield Right(theme)
+    }
+  
   private def saveResult(outputPath: String, content: String): IO[Either[AppError, Unit]] =
-    FileSaver
-      .saveToPath(outputPath, content)
-      .flatMap:
-        case Left(err) =>
-          printError(s"[save] ${err.message}") *>
-            IO.pure(Left(AppError.Save(err)))
-        case Right(_)  =>
-          printSuccess(s"File saved: $outputPath") *>
-            IO.pure(Right(()))
-
-  // ── Выбор рендерера (чистая функция) ─────────────────────────────────────────
-  //
-  // FR3.2: добавление нового формата = одна строка в этом match.
-  // Никакие другие файлы менять не нужно.
-
+    FileSaver.saveToPath(outputPath, content).flatMap {
+      case Left(err) =>
+        for
+          _ <- printError(s"[save] ${err.message}")
+        yield Left(AppError.Save(err))
+      case Right(_) =>
+        for
+          _ <- printSuccess(s"File saved: $outputPath")
+        yield Right(())
+    }
+  
+  /** Выбирает рендерер по строке формата. */
   private def selectRenderer(format: String): Either[AppError, Renderer[String]] =
     format.toLowerCase match
       case "html" => Right(HtmlRenderer)
       case "svg"  => Right(SvgRenderer)
       case "sec"  => Right(SecHtmlRenderer)
-      case "thrd"  => Right(ThirdHtmlRenderer)
-      case other  =>
-        Left(AppError.Render(RenderError.NotImplemented(other)))
-
-  // ── Парсинг аргументов CLI (чистая функция) ──────────────────────────────────
-
-  private def parseArgs(args: List[String]): Either[String, Args] =
-
-    // Рекурсивно обходим список аргументов, собирая Map флагов
-    def collect(
-                 remaining: List[String],
-                 acc:       Map[String, String]
-               ): Either[String, Map[String, String]] =
-      remaining match
-        case Nil   => Right(acc)
-        case flag :: value :: rest
-          if flag.startsWith("--")        => collect(rest, acc + (flag -> value))
-        case flag :: _ if flag.startsWith("--") =>
-          Left(s"Flag '$flag' specified without any value")
-        case unknown :: _                  =>
-          Left(s"Unknown argument: '$unknown'")
-
-    collect(args, Map.empty).flatMap: flags =>
+      case "thrd" => Right(ThirdHtmlRenderer)
+      case other  => Left(AppError.Render(RenderError.NotImplemented(other)))
+  
+  /** Парсит аргументы командной строки. */
+  private def parseArgs(args: List[String]): Either[String, Args] = {
+    @tailrec
+    def loop(rem: List[String], acc: Map[String, String]): Either[String, Map[String, String]] =
+      rem match
+        case Nil => Right(acc)
+        case flag :: value :: rest =>
+          if (!flag.startsWith("--")) Left(s"Invalid flag: $flag")
+          else loop(rest, acc + (flag -> value))
+        case _ => Left("Odd number of arguments") // сработает, если остался один элемент
+    
+    loop(args, Map.empty).flatMap { map =>
       for
-        input  <- flags.get("--input").toRight("The required flag was not specified --input")
-        output <- flags.get("--output").toRight("The required flag was not specified --output")
-        theme   = flags.getOrElse("--theme",  "default")
-        format  = flags.getOrElse("--format", "html")
+        input  <- map.get("--input").toRight("Missing --input")
+        output <- map.get("--output").toRight("Missing --output")
+        theme   = map.getOrElse("--theme", "default")
+        format  = map.getOrElse("--format", "html")
       yield Args(input, output, theme, format)
-
-  // ── Вывод в консоль (IO-функции) ──────────────────────────────────────────────
-
-  private def printInfo(msg: String):    IO[Unit] = IO.println(s"$msg")
+    }
+  }
+  
+  private def printInfo(msg: String): IO[Unit] = IO.println(msg)
   private def printSuccess(msg: String): IO[Unit] = IO.println(s"\n$msg")
-  private def printError(msg: String):   IO[Unit] = IO.println(s"$msg")
-  private def printUsage: IO[Unit] = IO.println:
+  private def printError(msg: String): IO[Unit] = IO.println(msg)
+  private def printUsage: IO[Unit] = IO.println {
     """
       |How to use:
       |  generator --input <path to JSON> --output <file path> [--theme default] [--format html]
       |
       |Themes:   default, dark
-      |Files: html (svg — в разработке)
+      |Files: html (svg — in development)
       |
       |Example:
       |  generator --input schedule.json --output out/schedule.html --theme dark
       |""".stripMargin
+  }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Единая иерархия ошибок приложения
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Оборачивает ошибки всех модулей в один тип —
-// пайплайн оперирует только AppError, не зная деталей каждого слоя.
-
+/** Объединённая ошибка приложения. */
 sealed trait AppError
 
 object AppError:
