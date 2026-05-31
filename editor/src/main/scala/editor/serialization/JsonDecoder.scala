@@ -1,40 +1,21 @@
 package editor.serialization
 
 import cats.effect.IO
-import cats.implicits.catsSyntaxEither
 import io.circe.Decoder
 import io.circe.parser.decode
 import shared.*
-
+import cats.implicits.catsSyntaxEither
 import java.io.File
 import scala.io.Source
 import scala.util.Using
 
 sealed trait DecodeError
+
 object DecodeError:
   case class ParseError(message: String) extends DecodeError
-  case class ValidationError(message: String) extends DecodeError
 
 object JsonDecoder:
-  
-  // Встроенные маппинги (без отдельного объекта Mapping)
-  private val jsonToWeekType: Map[String, WeekType] = Map(
-    "odd" -> WeekType.Odd,
-    "even" -> WeekType.Even
-  )
-  private val jsonToDay: Map[String, DayOfWeek] = Map(
-    "mon" -> DayOfWeek.Mon,
-    "tue" -> DayOfWeek.Tue,
-    "wed" -> DayOfWeek.Wed,
-    "thu" -> DayOfWeek.Thu,
-    "fri" -> DayOfWeek.Fri,
-    "sat" -> DayOfWeek.Sat
-  )
-  private val jsonToLessonType: Map[String, LessonType] = Map(
-    "lecture" -> LessonType.Lecture,
-    "practice" -> LessonType.Practice,
-    "lab" -> LessonType.Lab
-  )
+  import SerializeMappings.*
   
   given decodeWeekType: Decoder[WeekType] = Decoder[String].emap { s =>
     jsonToWeekType.get(s).toRight(s"Unknown week type: $s")
@@ -55,15 +36,13 @@ object JsonDecoder:
   
   def loadScheduleFromFile(file: File): IO[Either[DecodeError, ScheduleFile]] =
     IO.blocking {
-      Using(Source.fromFile(file))(_.mkString).toEither.left.map { ex =>
-        DecodeError.ParseError(s"Failed to read file: ${ex.getMessage}")
-      }
-    }.flatMap {
-      case Right(jsonStr) => IO.pure(parseScheduleFile(jsonStr))
-      case Left(err)      => IO.pure(Left(err))
+      Using.resource(Source.fromFile(file))(_.mkString)
+    }.attempt.map {
+      case Right(jsonStr) => parseScheduleFile(jsonStr)
+      case Left(ex)       => Left(DecodeError.ParseError(s"Failed to read file: ${ex.getMessage}"))
     }
   
-  def parseScheduleFile(jsonStr: String): Either[DecodeError, ScheduleFile] =
+  private def parseScheduleFile(jsonStr: String): Either[DecodeError, ScheduleFile] =
     decode[ScheduleFile](jsonStr).leftMap { circeErr =>
       DecodeError.ParseError(circeErr.getMessage)
     }

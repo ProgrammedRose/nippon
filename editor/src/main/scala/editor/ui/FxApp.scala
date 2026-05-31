@@ -8,6 +8,7 @@ import editor.model.AppState
 
 import cats.effect.unsafe.implicits.global
 
+/** запускатся из Main, подгружает Config в GUI */
 class FxApp extends Application:
   
   override def start(stage: Stage): Unit =
@@ -16,7 +17,6 @@ class FxApp extends Application:
         val initial = AppState.empty("", cfg)
         
         Renderer.render(initial, stage, cfg)
-        
         stage.setTitle("Schedule Editor")
         stage.show()
       

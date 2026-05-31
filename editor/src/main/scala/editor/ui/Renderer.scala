@@ -4,7 +4,7 @@ import cats.effect.unsafe.implicits.global
 import editor.model.{Actions, AppState}
 import editor.serialization.{JsonDecoder, JsonEncoder}
 import editor.validation.Validator
-import javafx.geometry.{Insets, Pos}
+import javafx.geometry.Insets
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.*
@@ -19,41 +19,18 @@ object Renderer:
   
   def render(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
     val root = renderEditorScreen(state, stage, cfg)
-    
     stage.setScene(Scene(root, 1280, 760))
   
-  private def renderEditorScreen(
-                                  state: AppState,
-                                  stage: Stage,
-                                  cfg: ScheduleConfig
-                                ): Parent =
-    
+  private def renderEditorScreen(state: AppState, stage: Stage, cfg: ScheduleConfig): Parent =
     val root = BorderPane()
+    root.setStyle(s"-fx-background-color: ${cfg.colors.oddWeekBg};")
     
-    root.setStyle(
-      s"""
-         | -fx-background-color: ${cfg.colors.oddWeekBg};
-         |""".stripMargin
-    )
-    
-    // ─────────────────────────────────────────────────────────────
-    // TOP BAR
-    // ─────────────────────────────────────────────────────────────
-    
+    // ---- Top bar ----
     val title = Label("Schedule Editor")
-    
-    title.setStyle(
-      s"""
-         | -fx-font-size: 24px;
-         | -fx-font-weight: bold;
-         | -fx-text-fill: ${cfg.colors.text};
-         |""".stripMargin
-    )
+    title.setStyle(s"-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: ${cfg.colors.text};")
     
     val groupField = TextField(state.schedule.meta.groupName)
-    
     groupField.setPromptText("Название группы")
-    
     groupField.setStyle(
       s"""
          | -fx-background-color: ${cfg.colors.evenWeekBg};
@@ -65,26 +42,14 @@ object Renderer:
          | -fx-border-radius: 10;
          |""".stripMargin
     )
-    
     groupField.textProperty.addListener((_, _, newValue) =>
-      val updatedState =
-        state.copy(
-          schedule =
-            state.schedule.copy(
-              meta =
-                state.schedule.meta.copy(
-                  groupName = newValue
-                )
-            )
-        )
-      
-      render(updatedState, stage, cfg)
+      val updated = state.copy(schedule = state.schedule.copy(meta = state.schedule.meta.copy(groupName = newValue)))
+      render(updated, stage, cfg)
     )
     
     def createButton(text: String, color: String): Button =
-      val button = Button(text)
-      
-      button.setStyle(
+      val btn = Button(text)
+      btn.setStyle(
         s"""
            | -fx-background-color: $color;
            | -fx-text-fill: white;
@@ -95,296 +60,52 @@ object Renderer:
            | -fx-cursor: hand;
            |""".stripMargin
       )
-      
-      button
+      btn
     
-    val loadButton =
-      createButton("Загрузить JSON", cfg.colors.room)
+    val loadButton = createButton("Загрузить JSON", cfg.colors.room)
+    val saveButton = createButton("Сохранить JSON", cfg.colors.lessonBg)
+    val htmlButton = createButton("Сгенерировать HTML", cfg.colors.teacher)
     
-    val saveButton =
-      createButton("Сохранить JSON", cfg.colors.lessonBg)
+    loadButton.setOnAction(_ => onLoad(state, stage, cfg))
+    saveButton.setOnAction(_ => onSave(state, stage, cfg))
+    htmlButton.setOnAction(_ => onGenerate(state, cfg, stage))
     
-    val htmlButton =
-      createButton("Сгенерировать HTML", cfg.colors.teacher)
-    
-    // ─────────────────────────────────────────────────────────────
-    // LOAD
-    // ─────────────────────────────────────────────────────────────
-    
-    loadButton.setOnAction(_ =>
-      val chooser = FileChooser()
-      
-      val file = chooser.showOpenDialog(stage)
-      
-      if file != null then
-        JsonDecoder.loadScheduleFromFile(file).unsafeRunSync() match
-          case Right(schedule) =>
-            val newState =
-              Actions.loadSchedule(schedule)(state)
-            
-            render(newState, stage, cfg)
-          
-          case Left(error) =>
-            showError(error.toString)
-    )
-    
-    // ─────────────────────────────────────────────────────────────
-    // SAVE JSON
-    // ─────────────────────────────────────────────────────────────
-    
-    saveButton.setOnAction(_ =>
-      Validator.validateScheduleFile(state.schedule) match
-        case Left(error) =>
-          showError(error.toString)
-        
-        case Right(_) =>
-          val chooser = FileChooser()
-          
-          chooser.setInitialFileName("schedule.json")
-          
-          val file = chooser.showSaveDialog(stage)
-          
-          if file != null then
-            JsonEncoder
-              .saveScheduleToFile(state.schedule, file)
-              .unsafeRunSync() match
-              
-              case Right(_) =>
-                showInfo("JSON успешно сохранён")
-              
-              case Left(error) =>
-                showError(error.toString)
-    )
-    
-    // ─────────────────────────────────────────────────────────────
-    // GENERATE HTML
-    // ─────────────────────────────────────────────────────────────
-    
-    htmlButton.setOnAction(_ =>
-      Validator.validateScheduleFile(state.schedule) match
-        case Left(error) =>
-          showError(error.toString)
-
-        case Right(_) =>
-          val tempJson = File.createTempFile("tempTEST", ".json", File("\\C:\\Users\\nonro\\Desktop\\"))
-          println(s"TEMP: ${tempJson.getAbsolutePath}")
-
-          JsonEncoder
-            .saveScheduleToFile(state.schedule, tempJson)
-            .unsafeRunSync() match
-
-            case Left(error) =>
-              showError(error)
-
-            case Right(_) =>
-              val chooser = FileChooser()
-              chooser.setInitialFileName("schedule.html")
-              val outputFile = File.createTempFile("tempTEST222", ".html", File("\\C:\\Users\\nonro\\Desktop\\"))
-
-              if outputFile != null then
-
-                // ▼ ЗАМЕНИТЬ старый command на этот ▼
-                val jarPath = "C:\\University Folder\\Programming Folder\\ScalaLabs\\Gufka\\generator\\target\\scala-3.3.7\\generator.jar" //
-
-                val command = List(
-                  "java", "-jar", jarPath,
-                  "--input",  tempJson.getAbsolutePath,
-                  "--output", outputFile.getAbsolutePath,
-                  "--theme",  "dark",
-                  "--format", "html"
-                )
-                // ▲ конец замены ▲
-
-                val exitCode = Process(command).!
-
-                if exitCode == 0 then
-                  showInfo("HTML успешно сгенерирован")
-                else
-                  showError(s"Generator завершился с кодом: $exitCode")
-/*        case Right(_) =>
-          val tempJson = File.createTempFile("tempTEST", ".json", File("\\C:\\Users\\nonro\\Desktop\\"))
-          println(s"TEMP: ${tempJson.getAbsolutePath}")
-
-          JsonEncoder
-            .saveScheduleToFile(state.schedule, tempJson)
-            .unsafeRunSync() match
-            
-            case Left(error) =>
-              showError(error)
-            
-            case Right(_) =>
-              val chooser = FileChooser()
-              
-              chooser.setInitialFileName("schedule.html")
-              
-              //val outputFile =
-              //  chooser.showSaveDialog(stage)
-              val outputFile = File.createTempFile("tempTEST222", ".html", File("\\C:\\Users\\nonro\\Desktop\\"))
-
-              if outputFile != null then
-
-                val command = List(
-                  //"cmd", "/c", "sbt",
-                  s"generator/run --input ${tempJson.getAbsolutePath} --output ${outputFile.getAbsolutePath} --theme dark --format html"
-                )
-
-                //println(s"OUTPUT^ ${outputFile.getAbsolutePath}")
-                
-                val exitCode =
-                  Process(command).!
-                
-                if exitCode == 0 then
-                  showInfo("HTML успешно сгенерирован")
-                else
-                  showError(
-                    s"Generator завершился с кодом: $exitCode"
-                  )*/
-    )
-    
-    val buttons = HBox(10)
-    
-    buttons.getChildren.addAll(
-      loadButton,
-      saveButton,
-      htmlButton
-    )
-    
-    val top = VBox(15)
-    
+    val buttons = HBox(10, loadButton, saveButton, htmlButton)
+    val top = VBox(15, title, groupField, buttons)
     top.setPadding(Insets(20))
     
-    top.getChildren.addAll(
-      title,
-      groupField,
-      buttons
-    )
-    
-    // ─────────────────────────────────────────────────────────────
-    // WEEK SELECTOR
-    // ─────────────────────────────────────────────────────────────
-    
+    // ---- Week selector ----
     val weekSelector = ComboBox[WeekType]()
-    
-    weekSelector.getItems.addAll(
-      WeekType.Odd,
-      WeekType.Even
-    )
-    
+    weekSelector.getItems.addAll(WeekType.Odd, WeekType.Even)
     weekSelector.setValue(state.currentWeekType)
+    weekSelector.setStyle(s"-fx-background-color: ${cfg.colors.evenWeekBg}; -fx-mark-color: white; -fx-background-radius: 10; -fx-font-size: 14px;")
     
-    weekSelector.setStyle(
-      s"""
-         | -fx-background-color: ${cfg.colors.evenWeekBg};
-         | -fx-mark-color: white;
-         | -fx-background-radius: 10;
-         | -fx-font-size: 14px;
-         |""".stripMargin
-    )
+    def weekCell = new ListCell[WeekType]:
+      override def updateItem(item: WeekType, empty: Boolean): Unit =
+        super.updateItem(item, empty)
+        if empty || item == null then setText(null)
+        else setText(item match { case WeekType.Odd => "Нечётная неделя"; case WeekType.Even => "Чётная неделя" })
+        setStyle(s"-fx-background-color: ${cfg.colors.evenWeekBg}; -fx-text-fill: white;")
     
-    weekSelector.setButtonCell(
-      new ListCell[WeekType]:
-        override def updateItem(
-                                 item: WeekType,
-                                 empty: Boolean
-                               ): Unit =
-          super.updateItem(item, empty)
-          
-          if empty || item == null then
-            setText(null)
-          else
-            setText(
-              item match
-                case WeekType.Odd  => "Нечётная неделя"
-                case WeekType.Even => "Чётная неделя"
-            )
-          
-          setStyle(
-            s"""
-               | -fx-background-color: ${cfg.colors.evenWeekBg};
-               | -fx-text-fill: white;
-               |""".stripMargin
-          )
-    )
+    weekSelector.setButtonCell(weekCell)
+    weekSelector.setCellFactory(_ => weekCell)
+    weekSelector.setOnAction(_ => render(Actions.setWeekType(weekSelector.getValue)(state), stage, cfg))
     
-    weekSelector.setCellFactory(_ =>
-      new ListCell[WeekType]:
-        override def updateItem(
-                                 item: WeekType,
-                                 empty: Boolean
-                               ): Unit =
-          super.updateItem(item, empty)
-          
-          if empty || item == null then
-            setText(null)
-          else
-            setText(
-              item match
-                case WeekType.Odd  => "Нечётная неделя"
-                case WeekType.Even => "Чётная неделя"
-            )
-          
-          setStyle(
-            s"""
-               | -fx-background-color: ${cfg.colors.evenWeekBg};
-               | -fx-text-fill: white;
-               |""".stripMargin
-          )
-    )
+    // ---- Data ----
+    val currentWeek = state.schedule.weeks.find(_.weekType == state.currentWeekType).get
     
-    weekSelector.setOnAction(_ =>
-      val updatedState =
-        Actions.setWeekType(
-          weekSelector.getValue
-        )(state)
-      
-      render(updatedState, stage, cfg)
-    )
-    
-    // ─────────────────────────────────────────────────────────────
-    // DATA
-    // ─────────────────────────────────────────────────────────────
-    
-    val currentWeek =
-      state.schedule.weeks
-        .find(_.weekType == state.currentWeekType)
-        .get
-    
-    // ─────────────────────────────────────────────────────────────
-    // DAY LIST
-    // ─────────────────────────────────────────────────────────────
-    
+    // ---- Day list ----
     val dayList = ListView[DayBlock]()
-    
     dayList.getItems.addAll(currentWeek.days*)
-    
-    dayList.setCellFactory(_ =>
-      DayBlockCell(cfg)
-    )
-    
+    dayList.setCellFactory(_ => DayBlockCell(cfg))
     dayList.setPrefWidth(420)
-    
-    dayList.setStyle(
-      s"""
-         | -fx-background-color: transparent;
-         | -fx-control-inner-background: transparent;
-         |""".stripMargin
-    )
-    
+    dayList.setStyle("-fx-background-color: transparent; -fx-control-inner-background: transparent;")
     if state.selectedDayIndex >= 0 then
-      dayList.getSelectionModel.select(
-        state.selectedDayIndex
-      )
-      
-      dayList.scrollTo(
-        state.selectedDayIndex
-      )
+      dayList.getSelectionModel.select(state.selectedDayIndex)
+      dayList.scrollTo(state.selectedDayIndex)
     
-    // ─────────────────────────────────────────────────────────────
-    // SLOT LIST
-    // ─────────────────────────────────────────────────────────────
-    
+    // ---- Slot list ----
     val slotList = ListView[String]()
-    
     slotList.setStyle(
       s"""
          | -fx-background-color: ${cfg.colors.evenWeekBg};
@@ -393,180 +114,132 @@ object Renderer:
          | -fx-padding: 10;
          |""".stripMargin
     )
-    
     val slotValues =
       if state.selectedDayIndex >= 0 then
-        val selectedDay =
-          currentWeek.days(state.selectedDayIndex)
-        
-        selectedDay.slots.zipWithIndex.map:
-          case (maybeSlot, index) =>
-            val time =
-              cfg.lessonTimes
-                .find(_.number == index + 1)
-                .map(t => s"${t.start}-${t.end}")
-                .getOrElse("")
-            
-            maybeSlot match
-              case Some(slot) =>
-                s"${index + 1}. [$time] ${slot.subject} / ${slot.teacher} / ${slot.room}"
-              
-              case None =>
-                s"${index + 1}. [$time] Пусто"
-      else
-        Vector.empty
-    
+        val selectedDay = currentWeek.days(state.selectedDayIndex)
+        selectedDay.slots.zipWithIndex.map { case (maybeSlot, idx) =>
+          val time = cfg.lessonTimes.find(_.number == idx + 1).map(t => s"${t.start}-${t.end}").getOrElse("")
+          maybeSlot match
+            case Some(slot) => s"${idx + 1}. [$time] ${slot.subject} / ${slot.teacher} / ${slot.room}"
+            case None       => s"${idx + 1}. [$time] Пусто"
+        }
+      else Vector.empty
     slotList.getItems.addAll(slotValues*)
-    
     if state.selectedSlotIndex >= 0 then
-      slotList.getSelectionModel.select(
-        state.selectedSlotIndex
-      )
-      
-      slotList.scrollTo(
-        state.selectedSlotIndex
-      )
+      slotList.getSelectionModel.select(state.selectedSlotIndex)
+      slotList.scrollTo(state.selectedSlotIndex)
     
-    // ─────────────────────────────────────────────────────────────
-    // EVENTS
-    // ─────────────────────────────────────────────────────────────
+    // ---- Selections ----
+    dayList.setOnMouseClicked(_ => onDaySelected(state, stage, cfg, dayList.getSelectionModel.getSelectedIndex))
+    slotList.setOnMouseClicked(_ => onSlotSelected(state, stage, cfg, slotList.getSelectionModel.getSelectedIndex))
     
-    dayList.setOnMouseClicked(_ =>
-      val selectedIndex =
-        dayList.getSelectionModel
-          .getSelectedIndex
-      
-      if selectedIndex >= 0 then
-        val updatedState =
-          Actions.selectDay(selectedIndex)(state)
-        
-        render(updatedState, stage, cfg)
-    )
+    // ---- Action buttons ----
+    val addButton = createButton("+ Добавить", cfg.colors.lessonBg)
+    val editButton = createButton("✎ Изменить", cfg.colors.teacher)
+    val deleteButton = createButton("✕ Удалить", cfg.colors.pairNumber)
     
-    slotList.setOnMouseClicked(_ =>
-      val selectedIndex =
-        slotList.getSelectionModel
-          .getSelectedIndex
-      
-      if selectedIndex >= 0 then
-        val updatedState =
-          Actions.selectSlot(selectedIndex)(state)
-        
-        render(updatedState, stage, cfg)
-    )
+    addButton.setOnAction(_ => onAdd(state, stage, cfg, dayList, currentWeek))
+    editButton.setOnAction(_ => onEdit(state, stage, cfg, dayList, slotList, currentWeek))
+    deleteButton.setOnAction(_ => onDelete(state, stage, cfg, dayList, slotList))
     
-    // ─────────────────────────────────────────────────────────────
-    // ACTION BUTTONS
-    // ─────────────────────────────────────────────────────────────
+    val actions = HBox(10, addButton, editButton, deleteButton)
     
-    val addButton =
-      createButton("+ Добавить", cfg.colors.lessonBg)
-    
-    val editButton =
-      createButton("✎ Изменить", cfg.colors.teacher)
-    
-    val deleteButton =
-      createButton("✕ Удалить", cfg.colors.pairNumber)
-
-    addButton.setOnAction(_ =>
-      val currentDayIndex = dayList.getSelectionModel.getSelectedIndex
-
-      if currentDayIndex >= 0 then
-        val day = currentWeek.days(currentDayIndex)
-        val emptyIndex = day.slots.indexWhere(_.isEmpty)
-
-        if emptyIndex >= 0 then
-          val dialog = SlotEditorDialog(None, cfg)
-          dialog.showDialogAndWait().foreach: slot =>
-            val updatedState =
-              Actions.saveSlot(currentDayIndex, emptyIndex, slot)(state)
-            render(updatedState, stage, cfg)
-        else
-          showError("Все слоты в этом дне заняты")
-    )
-
-    editButton.setOnAction(_ =>
-      val currentDayIndex = dayList.getSelectionModel.getSelectedIndex
-      val currentSlotIndex = slotList.getSelectionModel.getSelectedIndex
-
-      if currentDayIndex >= 0 && currentSlotIndex >= 0 then
-        val maybeSlot = currentWeek.days(currentDayIndex).slots(currentSlotIndex)
-        maybeSlot.foreach: slot =>
-          val dialog = SlotEditorDialog(Some(slot), cfg)
-          dialog.showDialogAndWait().foreach: updatedSlot =>
-            val updatedState =
-              Actions.saveSlot(currentDayIndex, currentSlotIndex, updatedSlot)(state)
-            render(updatedState, stage, cfg)
-    )
-
-    deleteButton.setOnAction(_ =>
-      val currentDayIndex = dayList.getSelectionModel.getSelectedIndex
-      val currentSlotIndex = slotList.getSelectionModel.getSelectedIndex
-
-      if currentDayIndex >= 0 && currentSlotIndex >= 0 then
-        val updatedState =
-          Actions.deleteSlot(currentDayIndex, currentSlotIndex)(state)
-        render(updatedState, stage, cfg)
-    )
-    
-    val actions = HBox(10)
-    
-    actions.getChildren.addAll(
-      addButton,
-      editButton,
-      deleteButton
-    )
-    
-    // ─────────────────────────────────────────────────────────────
-    // BODY
-    // ─────────────────────────────────────────────────────────────
-    
-    val body = HBox(20)
-    
+    // ---- Body ----
+    val body = HBox(20, dayList, slotList)
     body.setPadding(Insets(20))
-    
     HBox.setHgrow(slotList, Priority.ALWAYS)
     
-    body.getChildren.addAll(
-      dayList,
-      slotList
-    )
-    
-    val center = VBox(20)
-    
+    val center = VBox(20, weekSelector, body, actions)
     center.setPadding(Insets(0, 20, 20, 20))
-    
-    center.getChildren.addAll(
-      weekSelector,
-      body,
-      actions
-    )
     
     root.setTop(top)
     root.setCenter(center)
-    
     root
   
-  // ─────────────────────────────────────────────────────────────
-  // ALERTS
-  // ─────────────────────────────────────────────────────────────
+  // ---------- Вспомогательные методы для обработчиков ----------
+  private def onLoad(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
+    val chooser = FileChooser()
+    val file = chooser.showOpenDialog(stage)
+    if file != null then
+      JsonDecoder.loadScheduleFromFile(file).unsafeRunSync() match
+        case Right(schedule) => render(Actions.loadSchedule(schedule)(state), stage, cfg)
+        case Left(error)     => showError(error.toString)
+  
+  private def onSave(state: AppState, stage: Stage, cfg: ScheduleConfig): Unit =
+    Validator.validateScheduleFile(state.schedule) match
+      case Left(error) => showError(error.toString)
+      case Right(_) =>
+        val chooser = FileChooser()
+        chooser.setInitialFileName("schedule.json")
+        val file = chooser.showSaveDialog(stage)
+        if file != null then
+          JsonEncoder.saveScheduleToFile(state.schedule, file).unsafeRunSync() match
+            case Right(_) => showInfo("JSON успешно сохранён")
+            case Left(error) => showError(error)
+  
+  private def onGenerate(state: AppState, cfg: ScheduleConfig, stage: Stage): Unit =
+    Validator.validateScheduleFile(state.schedule) match
+      case Left(error) => showError(error.toString)
+      case Right(_) =>
+        val tempJson = File.createTempFile("tempSchedule", ".json")
+        JsonEncoder.saveScheduleToFile(state.schedule, tempJson).unsafeRunSync() match
+          case Left(error) => showError(error)
+          case Right(_) =>
+            val jarPath = "generator/target/scala-3.3.7/generator.jar"
+            val chooser = FileChooser()
+            chooser.setInitialFileName("schedule.html")
+            val outputFile = chooser.showSaveDialog(stage)
+            if outputFile != null then
+              val command = List("java", "-jar", jarPath, "--input", tempJson.getAbsolutePath, "--output", outputFile.getAbsolutePath, "--theme", "dark", "--format", "html")
+              val exitCode = Process(command).!
+              if exitCode == 0 then showInfo("HTML успешно сгенерирован")
+              else showError(s"Generator завершился с кодом: $exitCode")
+  
+  private def onDaySelected(state: AppState, stage: Stage, cfg: ScheduleConfig, idx: Int): Unit =
+    if idx >= 0 then render(Actions.selectDay(idx)(state), stage, cfg)
+  
+  private def onSlotSelected(state: AppState, stage: Stage, cfg: ScheduleConfig, idx: Int): Unit =
+    if idx >= 0 then render(Actions.selectSlot(idx)(state), stage, cfg)
+  
+  private def onAdd(state: AppState, stage: Stage, cfg: ScheduleConfig, dayList: ListView[DayBlock], currentWeek: Week): Unit =
+    val dayIdx = dayList.getSelectionModel.getSelectedIndex
+    if dayIdx >= 0 then
+      val day = currentWeek.days(dayIdx)
+      val emptyIdx = day.slots.indexWhere(_.isEmpty)
+      if emptyIdx >= 0 then
+        val dialog = SlotEditorDialog(None, cfg)
+        dialog.showDialogAndWait().foreach { slot =>
+          render(Actions.saveSlot(dayIdx, emptyIdx, slot)(state), stage, cfg)
+        }
+      else showError("Все слоты в этом дне заняты")
+  
+  private def onEdit(state: AppState, stage: Stage, cfg: ScheduleConfig, dayList: ListView[DayBlock], slotList: ListView[String], currentWeek: Week): Unit =
+    val dayIdx = dayList.getSelectionModel.getSelectedIndex
+    val slotIdx = slotList.getSelectionModel.getSelectedIndex
+    if dayIdx >= 0 && slotIdx >= 0 then
+      currentWeek.days(dayIdx).slots(slotIdx).foreach { slot =>
+        val dialog = SlotEditorDialog(Some(slot), cfg)
+        dialog.showDialogAndWait().foreach { updated =>
+          render(Actions.saveSlot(dayIdx, slotIdx, updated)(state), stage, cfg)
+        }
+      }
+  
+  private def onDelete(state: AppState, stage: Stage, cfg: ScheduleConfig, dayList: ListView[DayBlock], slotList: ListView[String]): Unit =
+    val dayIdx = dayList.getSelectionModel.getSelectedIndex
+    val slotIdx = slotList.getSelectionModel.getSelectedIndex
+    if dayIdx >= 0 && slotIdx >= 0 then
+      render(Actions.deleteSlot(dayIdx, slotIdx)(state), stage, cfg)
   
   private def showError(message: String): Unit =
-    val alert =
-      Alert(Alert.AlertType.ERROR)
-    
+    val alert = Alert(Alert.AlertType.ERROR)
     alert.setTitle("Ошибка")
     alert.setHeaderText("Ошибка")
     alert.setContentText(message)
-    
     alert.showAndWait()
   
   private def showInfo(message: String): Unit =
-    val alert =
-      Alert(Alert.AlertType.INFORMATION)
-    
+    val alert = Alert(Alert.AlertType.INFORMATION)
     alert.setTitle("Успех")
     alert.setHeaderText("Успех")
     alert.setContentText(message)
-    
     alert.showAndWait()

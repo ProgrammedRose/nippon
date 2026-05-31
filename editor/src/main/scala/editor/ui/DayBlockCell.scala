@@ -7,6 +7,9 @@ class DayBlockCell(
                     cfg: ScheduleConfig
                   ) extends ListCell[DayBlock]:
   
+  // Да, есть похожая мапа в коде, но тут разные
+  // предметные области. Там - сериализация, тут - GUI
+  // Мне одновременно нужны и русские названия, и нет
   private val dayNames =
     Map(
       DayOfWeek.Mon -> "Понедельник",

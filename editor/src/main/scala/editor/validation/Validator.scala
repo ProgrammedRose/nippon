@@ -14,7 +14,7 @@ object Validator:
   case class InvalidTeacher(value: String) extends ValidationError
   case class EmptyField(fieldName: String) extends ValidationError
   case class InvalidSlot(errors: List[ValidationError]) extends ValidationError
-  case class InvalidSchedule(errors: List[ValidationError]) extends ValidationError
+  private case class InvalidSchedule(errors: List[ValidationError]) extends ValidationError
 
   /**
    * Проверяет, что строка не пуста

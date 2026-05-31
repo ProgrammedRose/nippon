@@ -1,13 +1,17 @@
 package editor.ui
 
-import javafx.scene.Scene
-import javafx.scene.layout.{VBox, HBox}
-import javafx.scene.control.{Label, TextField, ComboBox, Button, CheckBox, Alert}
-import javafx.geometry.Pos
-import javafx.stage.Stage
-import shared.{LessonType, Slot, ScheduleConfig}
 import editor.validation.Validator
+import javafx.scene.Scene
+import javafx.scene.control.*
+import javafx.scene.layout.{HBox, VBox}
+import javafx.stage.Stage
+import shared.{LessonType, ScheduleConfig, Slot}
 
+/** Диалоговое окно для создания или редактирования пары (слота).
+ *
+ * @param initialSlot существующий слот для редактирования (None – создание нового)
+ * @param cfg         конфигурация расписания (не используется напрямую, но может быть полезна для расширения)
+ */
 class SlotEditorDialog(initialSlot: Option[Slot], cfg: ScheduleConfig) extends Stage:
   
   private val subjectField = new TextField()
@@ -100,6 +104,9 @@ class SlotEditorDialog(initialSlot: Option[Slot], cfg: ScheduleConfig) extends S
   
   cancelBtn.setOnAction(_ => close())
   
+  /** Отображает диалог и ожидает закрытия.
+   * @return Some(Slot) если пользователь сохранил данные, иначе None.
+   */
   def showDialogAndWait(): Option[Slot] =
     super.showAndWait()
     result
