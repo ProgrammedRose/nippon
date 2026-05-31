@@ -1,0 +1,41 @@
+schedule:
+  weeks: 2
+  days_per_week: 6
+  slots_per_day: 6
+
+  lesson_times:
+    - number: 1
+      start: "8:00"
+      end: "9:35"
+
+    - number: 2
+      start: "9:45"
+      end: "11:25"
+
+    - number: 3
+      start: "11:35"
+      end: "13:10"
+
+    - number: 4
+      start: "13:40"
+      end: "15:15"
+
+    - number: 5
+      start: "15:25"
+      end: "17:00"
+
+    - number: 6
+      start: "17:10"
+      end: "18:45"
+
+  colors:
+    odd_week_bg: "#111827"
+    even_week_bg: "#1f2937"
+    lesson_bg: "#2563eb"
+    empty_slot_bg: "#374151"
+    text: "#f9fafb"
+    day_header: "#10b981"
+    room: "#f59e0b"
+    teacher: "#8b5cf6"
+    pair_number: "#ef4444"
+    border: "#4b5563"

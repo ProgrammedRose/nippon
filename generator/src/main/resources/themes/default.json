@@ -1,0 +1,43 @@
+{
+  "name": "Default",
+  "description": "Светлая тема с мягкими акцентами",
+
+  "pageBackground": "#f5f6fa",
+  "pageText":       "#1a1a2e",
+
+  "headerBackground": "#2d3561",
+  "headerText":       "#ffffff",
+  "headerFontWeight": "600",
+
+  "borderColor":     "#d0d4e8",
+  "borderRadius":    "8px",
+  "cellPadding":     "8px 10px",
+  "emptyBackground": "#f0f2f8",
+
+  "fontFamily":    "'Segoe UI', 'Liberation Sans', Arial, sans-serif",
+  "fontSizeBase":  "13px",
+  "fontSizeSmall": "11px",
+  "fontSizeMeta":  "20px",
+
+  "weekBadgeBackground": "#e8eaf6",
+  "weekBadgeText":       "#2d3561",
+  "weekBadgeBorder":     "#9fa8da",
+
+  "lessons": {
+    "lecture": {
+      "background": "#e3f2fd",
+      "text":       "#0d47a1",
+      "accent":     "#1976d2"
+    },
+    "practice": {
+      "background": "#e8f5e9",
+      "text":       "#1b5e20",
+      "accent":     "#388e3c"
+    },
+    "lab": {
+      "background": "#fce4ec",
+      "text":       "#880e4f",
+      "accent":     "#c2185b"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "Dark",
+  "description": "Тёмная тема для комфортной работы ночью",
+
+  "pageBackground": "#12131a",
+  "pageText":       "#e0e0e0",
+
+  "headerBackground": "#1e1f2e",
+  "headerText":       "#c5cae9",
+  "headerFontWeight": "600",
+
+  "borderColor":     "#2a2b3d",
+  "borderRadius":    "8px",
+  "cellPadding":     "8px 10px",
+  "emptyBackground": "#1a1b27",
+
+  "fontFamily":    "'Segoe UI', 'Liberation Sans', Arial, sans-serif",
+  "fontSizeBase":  "13px",
+  "fontSizeSmall": "11px",
+  "fontSizeMeta":  "20px",
+
+  "weekBadgeBackground": "#1e1f2e",
+  "weekBadgeText":       "#9fa8da",
+  "weekBadgeBorder":     "#3949ab",
+
+  "lessons": {
+    "lecture": {
+      "background": "#0d253a",
+      "text":       "#90caf9",
+      "accent":     "#1565c0"
+    },
+    "practice": {
+      "background": "#0d2818",
+      "text":       "#a5d6a7",
+      "accent":     "#2e7d32"
+    },
+    "lab": {
+      "background": "#2a0d1a",
+      "text":       "#f48fb1",
+      "accent":     "#ad1457"
+    }
+  }
+}
