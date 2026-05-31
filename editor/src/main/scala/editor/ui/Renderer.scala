@@ -138,7 +138,7 @@ object Renderer:
     val editButton = createButton("Изменить", cfg.colors.teacher)
     val deleteButton = createButton("✕ Удалить", cfg.colors.pairNumber)
     
-    addButton.setOnAction(_ => onAdd(state, stage, cfg, dayList, currentWeek))
+    addButton.setOnAction(_ => onAdd(state, stage, cfg, dayList, slotList, currentWeek))
     editButton.setOnAction(_ => onEdit(state, stage, cfg, dayList, slotList, currentWeek))
     deleteButton.setOnAction(_ => onDelete(state, stage, cfg, dayList, slotList))
     
@@ -201,17 +201,27 @@ object Renderer:
   private def onSlotSelected(state: AppState, stage: Stage, cfg: ScheduleConfig, idx: Int): Unit =
     if idx >= 0 then render(Actions.selectSlot(idx)(state), stage, cfg)
   
-  private def onAdd(state: AppState, stage: Stage, cfg: ScheduleConfig, dayList: ListView[DayBlock], currentWeek: Week): Unit =
+  private def onAdd(state: AppState, stage: Stage, cfg: ScheduleConfig,
+                    dayList: ListView[DayBlock], slotList: ListView[String],
+                    currentWeek: Week): Unit =
     val dayIdx = dayList.getSelectionModel.getSelectedIndex
-    if dayIdx >= 0 then
+    val slotIdx = slotList.getSelectionModel.getSelectedIndex
+    
+    if dayIdx < 0 then
+      showError("Сначала выберите день")
+    else if slotIdx < 0 then
+      showError("Сначала выберите слот (кликните по времени)")
+    else
       val day = currentWeek.days(dayIdx)
-      val emptyIdx = day.slots.indexWhere(_.isEmpty)
-      if emptyIdx >= 0 then
+      if slotIdx >= day.slots.length then
+        showError("Внутренняя ошибка: слот не соответствует дню")
+      else if day.slots(slotIdx).isDefined then
+        showError("Этот слот уже занят")
+      else
         val dialog = SlotEditorDialog(None, cfg)
         dialog.showDialogAndWait().foreach { slot =>
-          render(Actions.saveSlot(dayIdx, emptyIdx, slot)(state), stage, cfg)
+          render(Actions.saveSlot(dayIdx, slotIdx, slot)(state), stage, cfg)
         }
-      else showError("Все слоты в этом дне заняты")
   
   private def onEdit(state: AppState, stage: Stage, cfg: ScheduleConfig, dayList: ListView[DayBlock], slotList: ListView[String], currentWeek: Week): Unit =
     val dayIdx = dayList.getSelectionModel.getSelectedIndex
